@@ -24,7 +24,7 @@ A flexible staking program on Solana, built with Anchor.
 1.  **Clone the repository:**
     ```bash
     git clone <repository-url>
-    cd aim_staking_program
+    cd aimonica-core-solana
     ```
 
 2.  **Install dependencies:**
