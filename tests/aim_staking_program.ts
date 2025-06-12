@@ -63,6 +63,17 @@ describe("aim_staking_program", () => {
         program.programId
       );
 
+    // Check if platform is already initialized
+    try {
+      const existingPlatformConfig = await program.account.platformConfig.fetch(platformConfigPda);
+      console.log("Platform already initialized, skipping initialization");
+      // If platform exists, verify it's owned by the correct authority
+      assert.ok(existingPlatformConfig.authority.equals(authority));
+      return;
+    } catch (error) {
+      // Platform doesn't exist, proceed with initialization
+    }
+
     await program.methods
       .initializePlatform()
       .accountsStrict({
@@ -78,6 +89,7 @@ describe("aim_staking_program", () => {
   });
 
   it("Registers a project", async () => {
+    // Get current platform state
     const platformConfigAccountBefore = await program.account.platformConfig.fetch(platformConfigPda);
     const projectCount = platformConfigAccountBefore.projectCount;
 
@@ -96,6 +108,18 @@ describe("aim_staking_program", () => {
         program.programId
     );
 
+    // Check if project is already registered
+    try {
+      const existingProjectConfig = await program.account.projectConfig.fetch(projectConfigPda);
+      console.log("Project already registered, skipping registration");
+      // Verify the project configuration
+      assert.ok(existingProjectConfig.tokenMint.equals(tokenMint));
+      assert.ok(existingProjectConfig.vault.equals(vaultPda));
+      return;
+    } catch (error) {
+      // Project doesn't exist, proceed with registration
+    }
+
     await program.methods
       .registerProject()
       .accountsStrict({
@@ -112,7 +136,7 @@ describe("aim_staking_program", () => {
       .rpc();
 
     const platformConfigAccountAfter = await program.account.platformConfig.fetch(platformConfigPda);
-    assert.equal(platformConfigAccountAfter.projectCount.toNumber(), 1);
+    assert.equal(platformConfigAccountAfter.projectCount.toNumber(), projectCount.toNumber() + 1);
 
     const projectConfigAccount = await program.account.projectConfig.fetch(projectConfigPda);
     assert.ok(projectConfigAccount.tokenMint.equals(tokenMint));

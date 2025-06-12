@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-declare_id!("7YEzwNZhjrZDafCKdQSYCe2iqGgo9hHz6zZKuUCjmR6f");
+declare_id!("5hjhdxLDM57eUmaC5Nih6jNeLW1bMamYGkFpRqhd7dN9");
 
 #[program]
 pub mod aim_staking_program {
