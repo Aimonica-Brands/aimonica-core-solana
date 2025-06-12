@@ -65,7 +65,7 @@ describe("aim_staking_program", () => {
 
     await program.methods
       .initializePlatform()
-      .accounts({
+      .accountsStrict({
         platformConfig: platformConfigPda,
         authority: authority,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -98,7 +98,7 @@ describe("aim_staking_program", () => {
 
     await program.methods
       .registerProject()
-      .accounts({
+      .accountsStrict({
         platformConfig: platformConfigPda,
         projectConfig: projectConfigPda,
         tokenMint: tokenMint,
@@ -130,7 +130,7 @@ describe("aim_staking_program", () => {
 
     await program.methods
       .stake(amountToStake, durationDays)
-      .accounts({
+      .accountsStrict({
         projectConfig: projectConfigPda,
         stakeInfo: stakeInfoPda,
         user: user.publicKey,
@@ -156,7 +156,7 @@ describe("aim_staking_program", () => {
     try {
       await program.methods
         .unstake()
-        .accounts({
+        .accountsStrict({
             projectConfig: projectConfigPda,
             stakeInfo: stakeInfoPda,
             user: user.publicKey,
@@ -194,7 +194,7 @@ describe("aim_staking_program", () => {
 
     await program.methods
       .emergencyUnstake()
-      .accounts({
+      .accountsStrict({
         projectConfig: projectConfigPda,
         stakeInfo: stakeInfoPda,
         user: user.publicKey,
