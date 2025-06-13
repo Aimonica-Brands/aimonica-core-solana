@@ -25,6 +25,7 @@ describe("aim_staking_program", () => {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   before(async () => {
+    console.log(user.publicKey);
     // Airdrop SOL to the user for transaction fees
     await provider.connection.requestAirdrop(user.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
     await sleep(1000); // Wait for airdrop confirmation
