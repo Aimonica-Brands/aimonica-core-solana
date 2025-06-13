@@ -10,7 +10,10 @@ describe("aim_staking_program", () => {
 
   const program = anchor.workspace.AimStakingProgram as Program<AimStakingProgram>;
   const authority = provider.wallet.publicKey;
-  const user = anchor.web3.Keypair.generate();
+  // Use a fixed keypair for development to manually fund it.
+  // Public key: 7t2eA7eXyF9yCgYJ3e2h6WkZq1xR6Y3N5k8ZqJ7bC1wE
+  const userSecretKey = new Uint8Array([152,36,39,149,239,129,83,203,225,203,45,147,126,217,219,149,116,246,178,31,226,239,151,54,240,40,153,169,191,149,239,215,123,105,169,110,161,197,187,151,131,198,145,75,118,229,90,147,180,248,113,64,218,153,248,164,155,178,82,190,190,233,31,185]);
+  const user = anchor.web3.Keypair.fromSecretKey(userSecretKey);
 
   let tokenMint: anchor.web3.PublicKey;
   let userTokenAccount: anchor.web3.PublicKey;
@@ -25,16 +28,8 @@ describe("aim_staking_program", () => {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   before(async () => {
-    console.log(user.publicKey);
-    // Airdrop SOL to the user for transaction fees
-    const airdropSignature = await provider.connection.requestAirdrop(user.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
-
-    const latestBlockhash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      signature: airdropSignature,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-    });
+    console.log(`User public key: ${user.publicKey.toBase58()}`);
+    // On devnet, requestAirdrop can fail. Using a fixed keypair and funding it manually.
 
     // Create a new token mint
     tokenMint = await createMint(
