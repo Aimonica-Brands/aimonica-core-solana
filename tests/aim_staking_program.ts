@@ -25,6 +25,14 @@ describe("aim_staking_program", () => {
   let vaultAuthorityPda: anchor.web3.PublicKey;
   let stakeInfoPda: anchor.web3.PublicKey;
 
+  // To manage multiple stakes
+  const stakes: {
+    id: anchor.BN,
+    pda: anchor.web3.PublicKey,
+    amount: anchor.BN,
+    duration: number
+  }[] = [];
+
   // Helper function to sleep
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -154,14 +162,16 @@ describe("aim_staking_program", () => {
     assert.ok(projectConfigAccount.vault.equals(vaultPda));
   });
 
-  it("Stakes tokens", async () => {
+  it("Stakes tokens (1st stake)", async () => {
     const amountToStake = new anchor.BN(100 * 10 ** 9);
     const durationDays = 7;
+    const stakeId = new anchor.BN(1);
 
-    [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("stake"), projectConfigPda.toBuffer(), user.publicKey.toBuffer()],
+    const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("stake"), projectConfigPda.toBuffer(), user.publicKey.toBuffer(), stakeId.toBuffer('le', 8)],
       program.programId
     );
+    stakes.push({ id: stakeId, pda: stakeInfoPda, amount: amountToStake, duration: durationDays });
 
     const stakeAccounts = {
       projectConfig: projectConfigPda,
@@ -172,30 +182,73 @@ describe("aim_staking_program", () => {
       systemProgram: anchor.web3.SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
     };
-    console.log("stake accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+    console.log("stake (1st) accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
-    const txid_stake = await program.methods
-      .stake(amountToStake, durationDays)
+    const txid_stake = await (program.methods.stake as any)(amountToStake, durationDays, stakeId)
       .accountsStrict(stakeAccounts)
       .signers([user])
       .rpc();
-    console.log("stake transaction:", txid_stake);
+    console.log("stake (1st) transaction:", txid_stake);
 
     const stakeInfoAccount = await program.account.userStakeInfo.fetch(stakeInfoPda);
     assert.ok(stakeInfoAccount.user.equals(user.publicKey));
     assert.equal(stakeInfoAccount.amount.toNumber(), amountToStake.toNumber());
     assert.equal(stakeInfoAccount.durationDays, durationDays);
+    assert.equal((stakeInfoAccount as any).stakeId.toString(), stakeId.toString());
     assert.isTrue(stakeInfoAccount.isStaked);
 
     const vaultAccount = await getAccount(provider.connection, vaultPda);
     assert.equal(vaultAccount.amount.toString(), amountToStake.toString());
   });
 
+  it("Stakes tokens (2nd stake)", async () => {
+    const vaultAccountBefore = await getAccount(provider.connection, vaultPda);
+
+    const amountToStake = new anchor.BN(50 * 10 ** 9);
+    const durationDays = 14;
+    const stakeId = new anchor.BN(2);
+
+    const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("stake"), projectConfigPda.toBuffer(), user.publicKey.toBuffer(), stakeId.toBuffer('le', 8)],
+      program.programId
+    );
+    stakes.push({ id: stakeId, pda: stakeInfoPda, amount: amountToStake, duration: durationDays });
+
+    const stakeAccounts = {
+      projectConfig: projectConfigPda,
+      stakeInfo: stakeInfoPda,
+      user: user.publicKey,
+      userTokenAccount: userTokenAccount,
+      vault: vaultPda,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    };
+    console.log("stake (2nd) accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+
+    const txid_stake = await (program.methods.stake as any)(amountToStake, durationDays, stakeId)
+      .accountsStrict(stakeAccounts)
+      .signers([user])
+      .rpc();
+    console.log("stake (2nd) transaction:", txid_stake);
+
+    const stakeInfoAccount = await program.account.userStakeInfo.fetch(stakeInfoPda);
+    assert.ok(stakeInfoAccount.user.equals(user.publicKey));
+    assert.equal(stakeInfoAccount.amount.toNumber(), amountToStake.toNumber());
+    assert.equal(stakeInfoAccount.durationDays, durationDays);
+    assert.equal((stakeInfoAccount as any).stakeId.toString(), stakeId.toString());
+    assert.isTrue(stakeInfoAccount.isStaked);
+
+    const vaultAccountAfter = await getAccount(provider.connection, vaultPda);
+    const expectedVaultAmount = BigInt(vaultAccountBefore.amount.toString()) + BigInt(amountToStake.toString());
+    assert.equal(vaultAccountAfter.amount.toString(), expectedVaultAmount.toString());
+  });
+
   it("Fails to unstake before lockup period ends", async () => {
+    const stakeToTest = stakes[0];
     try {
       const unstakeAccounts = {
         projectConfig: projectConfigPda,
-        stakeInfo: stakeInfoPda,
+        stakeInfo: stakeToTest.pda,
         user: user.publicKey,
         userTokenAccount: userTokenAccount,
         vault: vaultPda,
@@ -203,8 +256,7 @@ describe("aim_staking_program", () => {
         tokenProgram: TOKEN_PROGRAM_ID,
       };
       console.log("unstake accounts:", JSON.stringify(unstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
-      const txid_unstake = await program.methods
-        .unstake()
+      const txid_unstake = await (program.methods.unstake as any)(stakeToTest.id)
         .accountsStrict(unstakeAccounts)
         .signers([user])
         .rpc();
@@ -229,14 +281,18 @@ describe("aim_staking_program", () => {
   });
 
 
-  it("Emergency unstakes tokens", async () => {
+  it("Emergency unstakes one of the stakes", async () => {
+    const stakeToUnstake = stakes[0];
+    const remainingStake = stakes[1];
+    
     const userTokenAccountBefore = await getAccount(provider.connection, userTokenAccount);
-    const stakeInfoAccountBefore = await program.account.userStakeInfo.fetch(stakeInfoPda);
+    const stakeInfoAccountBefore = await program.account.userStakeInfo.fetch(stakeToUnstake.pda);
     const amountStaked = stakeInfoAccountBefore.amount;
+    const vaultAccountBefore = await getAccount(provider.connection, vaultPda);
 
     const emergencyUnstakeAccounts = {
       projectConfig: projectConfigPda,
-      stakeInfo: stakeInfoPda,
+      stakeInfo: stakeToUnstake.pda,
       user: user.publicKey,
       userTokenAccount: userTokenAccount,
       vault: vaultPda,
@@ -245,8 +301,7 @@ describe("aim_staking_program", () => {
     };
     console.log("emergencyUnstake accounts:", JSON.stringify(emergencyUnstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
-    const txid_emergencyUnstake = await program.methods
-      .emergencyUnstake()
+    const txid_emergencyUnstake = await (program.methods.emergencyUnstake as any)(stakeToUnstake.id)
       .accountsStrict(emergencyUnstakeAccounts)
       .signers([user])
       .rpc();
@@ -254,7 +309,7 @@ describe("aim_staking_program", () => {
     
     // The stake_info account should be closed, so fetching it will fail.
     try {
-        await program.account.userStakeInfo.fetch(stakeInfoPda);
+        await program.account.userStakeInfo.fetch(stakeToUnstake.pda);
         assert.fail("Stake info account should have been closed.");
     } catch (error) {
         assert.include(error.message, "Account does not exist");
@@ -264,7 +319,15 @@ describe("aim_staking_program", () => {
     const expectedBalance = BigInt(userTokenAccountBefore.amount.toString()) + BigInt(amountStaked.toString());
     assert.equal(userTokenAccountAfter.amount.toString(), expectedBalance.toString());
 
-    const vaultAccount = await getAccount(provider.connection, vaultPda);
-    assert.equal(vaultAccount.amount.toString(), "0");
+    const vaultAccountAfter = await getAccount(provider.connection, vaultPda);
+    const expectedVaultAmount = BigInt(vaultAccountBefore.amount) - BigInt(amountStaked.toString());
+    assert.equal(vaultAccountAfter.amount.toString(), expectedVaultAmount.toString());
+
+    // Verify the second stake is still there
+    const remainingStakeAccount = await program.account.userStakeInfo.fetch(remainingStake.pda);
+    assert.ok(remainingStakeAccount.isStaked);
+    assert.equal(remainingStakeAccount.amount.toString(), remainingStake.amount.toString());
+    const vaultFinalAmount = await getAccount(provider.connection, vaultPda);
+    assert.equal(vaultFinalAmount.amount.toString(), remainingStake.amount.toString());
   });
 });

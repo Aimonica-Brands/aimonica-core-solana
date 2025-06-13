@@ -27,7 +27,7 @@ pub mod aim_staking_program {
         Ok(())
     }
 
-    pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32) -> Result<()> {
+    pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
         // Validate duration
         if ![7, 14, 30].contains(&duration_days) {
             return err!(ErrorCode::InvalidDuration);
@@ -48,6 +48,7 @@ pub mod aim_staking_program {
         stake_info.user = *ctx.accounts.user.key;
         stake_info.project_config = ctx.accounts.project_config.key();
         stake_info.project_id = ctx.accounts.project_config.project_id;
+        stake_info.stake_id = stake_id;
         stake_info.amount = amount;
         stake_info.stake_timestamp = Clock::get()?.unix_timestamp;
         stake_info.duration_days = duration_days;
@@ -56,6 +57,7 @@ pub mod aim_staking_program {
         emit!(StakeEvent {
             user: stake_info.user,
             project_id: stake_info.project_id,
+            stake_id: stake_info.stake_id,
             amount: stake_info.amount,
             duration_days: stake_info.duration_days,
         });
@@ -63,7 +65,7 @@ pub mod aim_staking_program {
         Ok(())
     }
 
-    pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
+    pub fn unstake(ctx: Context<Unstake>, stake_id: u64) -> Result<()> {
         let stake_info = &mut ctx.accounts.stake_info;
         let clock = Clock::get()?;
 
@@ -95,13 +97,14 @@ pub mod aim_staking_program {
         emit!(UnstakeEvent {
             user: stake_info.user,
             project_id: stake_info.project_id,
+            stake_id: stake_info.stake_id,
             amount: stake_info.amount,
         });
 
         Ok(())
     }
 
-    pub fn emergency_unstake(ctx: Context<Unstake>) -> Result<()> {
+    pub fn emergency_unstake(ctx: Context<Unstake>, stake_id: u64) -> Result<()> {
         let stake_info = &mut ctx.accounts.stake_info;
         
         // Transfer tokens from vault back to user
@@ -127,6 +130,7 @@ pub mod aim_staking_program {
         emit!(EmergencyUnstakeEvent {
             user: stake_info.user,
             project_id: stake_info.project_id,
+            stake_id: stake_info.stake_id,
             amount: stake_info.amount,
         });
 
@@ -155,6 +159,7 @@ pub struct UserStakeInfo {
     pub user: Pubkey,
     pub project_config: Pubkey,
     pub project_id: u64,
+    pub stake_id: u64,
     pub amount: u64,
     pub stake_timestamp: i64,
     pub duration_days: u32,
@@ -220,7 +225,7 @@ pub struct RegisterProject<'info> {
 
 
 #[derive(Accounts)]
-#[instruction(amount: u64, duration_days: u32)]
+#[instruction(amount: u64, duration_days: u32, stake_id: u64)]
 pub struct Stake<'info> {
     #[account(
         has_one = vault
@@ -229,8 +234,8 @@ pub struct Stake<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 4 + 1,
-        seeds = [b"stake", project_config.key().to_bytes().as_ref(), user.key().as_ref()],
+        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 4 + 1,
+        seeds = [b"stake", project_config.key().to_bytes().as_ref(), user.key().as_ref(), stake_id.to_le_bytes().as_ref()],
         bump
     )]
     pub stake_info: Account<'info, UserStakeInfo>,
@@ -249,12 +254,13 @@ pub struct Stake<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(stake_id: u64)]
 pub struct Unstake<'info> {
     pub project_config: Account<'info, ProjectConfig>,
     #[account(
         mut,
         has_one = user,
-        seeds = [b"stake", project_config.key().to_bytes().as_ref(), user.key().as_ref()],
+        seeds = [b"stake", project_config.key().to_bytes().as_ref(), user.key().as_ref(), stake_id.to_le_bytes().as_ref()],
         bump,
         close = user
     )]
@@ -287,6 +293,7 @@ pub struct Unstake<'info> {
 pub struct StakeEvent {
     pub user: Pubkey,
     pub project_id: u64,
+    pub stake_id: u64,
     pub amount: u64,
     pub duration_days: u32,
 }
@@ -295,6 +302,7 @@ pub struct StakeEvent {
 pub struct UnstakeEvent {
     pub user: Pubkey,
     pub project_id: u64,
+    pub stake_id: u64,
     pub amount: u64,
 }
 
@@ -302,6 +310,7 @@ pub struct UnstakeEvent {
 pub struct EmergencyUnstakeEvent {
     pub user: Pubkey,
     pub project_id: u64,
+    pub stake_id: u64,
     pub amount: u64,
 }
 
