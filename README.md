@@ -10,16 +10,44 @@ A flexible staking program on Solana, built with Anchor.
 - **Standard Unstake**: Users can withdraw their staked tokens and rewards after the lock-up period.
 - **Emergency Unstake**: A failsafe option for users to withdraw their tokens immediately if needed, forfeiting any rewards.
 
-## Instructions
+## Getting Started
 
-### Prerequisites
+Follow these instructions to set up the development environment and run the project.
 
+### 1. Environment Setup
+
+The following tools are required:
 - Rust
 - Solana CLI
 - Anchor Framework
 - Node.js & Yarn
 
-### Installation
+The recommended way to install these dependencies is by using the official Solana and Anchor installation scripts.
+
+**On macOS and Linux:**
+
+Run this single command in your terminal. It will install Rust, the Solana CLI, the Anchor version manager (avm), Node.js, and Yarn.
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+```
+
+After the script finishes, restart your terminal and install the latest version of the Anchor CLI:
+
+```bash
+avm install latest
+avm use latest
+```
+
+**On Windows:**
+
+1.  Install Windows Subsystem for Linux (WSL).
+2.  Open your WSL terminal (e.g., Ubuntu).
+3.  Run the installation command for macOS/Linux shown above inside your WSL terminal.
+
+For more details, refer to the [official Anchor installation guide](https://www.anchor-lang.com/docs/installation).
+
+### 2. Project Setup
 
 1.  **Clone the repository:**
     ```bash
@@ -27,29 +55,36 @@ A flexible staking program on Solana, built with Anchor.
     cd aimonica-core-solana
     ```
 
-2.  **Install dependencies:**
+2.  **Install project dependencies:**
     ```bash
-    anchor build
     npm install
     ```
 
-### Deployment
+3.  **Build the Anchor program:**
+    This command compiles the Rust code and generates the program's IDL (Interface Definition Language).
+    ```bash
+    anchor build
+    ```
+
+## Usage
+
+To test and interact with the program, you can use the following commands.
 
 1.  **Start a local validator:**
+    Open a new terminal and run:
     ```bash
     solana-test-validator
     ```
+    This will start a local Solana cluster. Keep it running.
 
 2.  **Deploy the program:**
+    In your project directory terminal, deploy the compiled program to your local validator.
     ```bash
     anchor deploy
     ```
 
-### Usage
-
-The program can be interacted with via tests or a custom frontend.
-
--   **Run tests:**
+3.  **Run tests:**
+    This command will build, deploy, and run the tests for your project on the local validator.
     ```bash
     anchor test
     ```
