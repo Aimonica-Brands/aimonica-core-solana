@@ -61,7 +61,35 @@ For more details, refer to the [official Anchor installation guide](https://www.
     ```
 
 3.  **Build the Anchor program:**
-    This command compiles the Rust code and generates the program's IDL (Interface Definition Language).
+    This command compiles the Rust code, generates the program's IDL (Interface Definition Language), and creates a new keypair for the program if one doesn't exist.
+    ```bash
+    anchor build
+    ```
+
+4.  **Update Program ID:**
+    After the first build, a new program ID is generated. You need to update this ID in your configuration files.
+
+    First, get the new program ID:
+    ```bash
+    anchor keys list
+    ```
+    It will output something like `aim_staking: <new-program-id>`. Copy the `<new-program-id>`.
+
+    Next, open `Anchor.toml` and update the `aim_staking` address under `[programs.localnet]` with the new program ID.
+
+    ```toml
+    [programs.localnet]
+    aim_staking = "<new-program-id>"
+    ```
+
+    Then, update the program ID in the source code. Open `programs/aim-staking/src/lib.rs` and replace the existing address in `declare_id!` with your new program ID.
+
+    ```rust
+    declare_id!("<new-program-id>");
+    ```
+
+5.  **Rebuild the program:**
+    After updating the ID, rebuild the program to apply the changes.
     ```bash
     anchor build
     ```
