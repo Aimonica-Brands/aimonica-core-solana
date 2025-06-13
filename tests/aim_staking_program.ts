@@ -84,10 +84,11 @@ describe("aim_staking_program", () => {
     };
     console.log("initializePlatform accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
-    await program.methods
+    const txid_initialize = await program.methods
       .initializePlatform()
       .accountsStrict(accounts)
       .rpc();
+    console.log("initializePlatform transaction:", txid_initialize);
 
     const platformConfigAccount = await program.account.platformConfig.fetch(platformConfigPda);
     assert.ok(platformConfigAccount.authority.equals(authority));
@@ -139,10 +140,11 @@ describe("aim_staking_program", () => {
     };
     console.log("registerProject accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
-    await program.methods
+    const txid_register = await program.methods
       .registerProject()
       .accountsStrict(accounts)
       .rpc();
+    console.log("registerProject transaction:", txid_register);
 
     const platformConfigAccountAfter = await program.account.platformConfig.fetch(platformConfigPda);
     assert.equal(platformConfigAccountAfter.projectCount.toNumber(), projectCount.toNumber() + 1);
@@ -172,11 +174,12 @@ describe("aim_staking_program", () => {
     };
     console.log("stake accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
-    await program.methods
+    const txid_stake = await program.methods
       .stake(amountToStake, durationDays)
       .accountsStrict(stakeAccounts)
       .signers([user])
       .rpc();
+    console.log("stake transaction:", txid_stake);
 
     const stakeInfoAccount = await program.account.userStakeInfo.fetch(stakeInfoPda);
     assert.ok(stakeInfoAccount.user.equals(user.publicKey));
@@ -200,11 +203,12 @@ describe("aim_staking_program", () => {
         tokenProgram: TOKEN_PROGRAM_ID,
       };
       console.log("unstake accounts:", JSON.stringify(unstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
-      await program.methods
+      const txid_unstake = await program.methods
         .unstake()
         .accountsStrict(unstakeAccounts)
         .signers([user])
         .rpc();
+      console.log("unstake transaction:", txid_unstake);
       assert.fail("Unstaking should have failed but it succeeded.");
     } catch (error) {
       assert.include(error.message, "LockupPeriodNotEnded");
@@ -241,11 +245,12 @@ describe("aim_staking_program", () => {
     };
     console.log("emergencyUnstake accounts:", JSON.stringify(emergencyUnstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
-    await program.methods
+    const txid_emergencyUnstake = await program.methods
       .emergencyUnstake()
       .accountsStrict(emergencyUnstakeAccounts)
       .signers([user])
       .rpc();
+    console.log("emergencyUnstake transaction:", txid_emergencyUnstake);
     
     // The stake_info account should be closed, so fetching it will fail.
     try {
