@@ -27,8 +27,14 @@ describe("aim_staking_program", () => {
   before(async () => {
     console.log(user.publicKey);
     // Airdrop SOL to the user for transaction fees
-    await provider.connection.requestAirdrop(user.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
-    await sleep(1000); // Wait for airdrop confirmation
+    const airdropSignature = await provider.connection.requestAirdrop(user.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
+
+    const latestBlockhash = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      signature: airdropSignature,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
 
     // Create a new token mint
     tokenMint = await createMint(
