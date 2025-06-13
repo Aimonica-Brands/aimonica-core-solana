@@ -11,7 +11,7 @@ describe("aim_staking_program", () => {
   const program = anchor.workspace.AimStakingProgram as Program<AimStakingProgram>;
   const authority = provider.wallet.publicKey;
   // Use a fixed keypair for development to manually fund it.
-  // Public key: 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM
+  // Public key: CDmUCaBAUVa7eERKFJr3PER1aeknpTLdkbmzuFR6MhJm
   const user = anchor.web3.Keypair.fromSecretKey(
     Uint8Array.from([104,6,27,155,224,174,1,74,31,122,9,169,139,243,245,178,51,62,178,251,223,165,114,130,221,223,189,211,211,108,114,234,166,181,206,158,177,135,230,10,6,143,200,153,178,235,105,165,170,148,170,169,97,108,202,97,159,84,49,207,127,17,47,150])
   );
