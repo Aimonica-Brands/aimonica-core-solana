@@ -13,10 +13,7 @@ describe("aim_staking_program", () => {
   // Use a fixed keypair for development to manually fund it.
   // Public key: 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM
   const user = anchor.web3.Keypair.fromSecretKey(
-    Uint8Array.from([
-      174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
-      222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246
-    ])
+    Uint8Array.from([104,6,27,155,224,174,1,74,31,122,9,169,139,243,245,178,51,62,178,251,223,165,114,130,221,223,189,211,211,108,114,234,166,181,206,158,177,135,230,10,6,143,200,153,178,235,105,165,170,148,170,169,97,108,202,97,159,84,49,207,127,17,47,150])
   );
 
   let tokenMint: anchor.web3.PublicKey;
