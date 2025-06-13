@@ -77,13 +77,16 @@ describe("aim_staking_program", () => {
       // Platform doesn't exist, proceed with initialization
     }
 
+    const accounts = {
+      platformConfig: platformConfigPda,
+      authority: authority,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    };
+    console.log("initializePlatform accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+
     await program.methods
       .initializePlatform()
-      .accountsStrict({
-        platformConfig: platformConfigPda,
-        authority: authority,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
+      .accountsStrict(accounts)
       .rpc();
 
     const platformConfigAccount = await program.account.platformConfig.fetch(platformConfigPda);
@@ -123,19 +126,22 @@ describe("aim_staking_program", () => {
       // Project doesn't exist, proceed with registration
     }
 
+    const accounts = {
+      platformConfig: platformConfigPda,
+      projectConfig: projectConfigPda,
+      tokenMint: tokenMint,
+      vault: vaultPda,
+      vaultAuthority: vaultAuthorityPda,
+      authority: authority,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+    };
+    console.log("registerProject accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+
     await program.methods
       .registerProject()
-      .accountsStrict({
-        platformConfig: platformConfigPda,
-        projectConfig: projectConfigPda,
-        tokenMint: tokenMint,
-        vault: vaultPda,
-        vaultAuthority: vaultAuthorityPda,
-        authority: authority,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      })
+      .accountsStrict(accounts)
       .rpc();
 
     const platformConfigAccountAfter = await program.account.platformConfig.fetch(platformConfigPda);
@@ -155,17 +161,20 @@ describe("aim_staking_program", () => {
       program.programId
     );
 
+    const stakeAccounts = {
+      projectConfig: projectConfigPda,
+      stakeInfo: stakeInfoPda,
+      user: user.publicKey,
+      userTokenAccount: userTokenAccount,
+      vault: vaultPda,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    };
+    console.log("stake accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+
     await program.methods
       .stake(amountToStake, durationDays)
-      .accountsStrict({
-        projectConfig: projectConfigPda,
-        stakeInfo: stakeInfoPda,
-        user: user.publicKey,
-        userTokenAccount: userTokenAccount,
-        vault: vaultPda,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
+      .accountsStrict(stakeAccounts)
       .signers([user])
       .rpc();
 
@@ -181,17 +190,19 @@ describe("aim_staking_program", () => {
 
   it("Fails to unstake before lockup period ends", async () => {
     try {
+      const unstakeAccounts = {
+        projectConfig: projectConfigPda,
+        stakeInfo: stakeInfoPda,
+        user: user.publicKey,
+        userTokenAccount: userTokenAccount,
+        vault: vaultPda,
+        vaultAuthority: vaultAuthorityPda,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      };
+      console.log("unstake accounts:", JSON.stringify(unstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
       await program.methods
         .unstake()
-        .accountsStrict({
-            projectConfig: projectConfigPda,
-            stakeInfo: stakeInfoPda,
-            user: user.publicKey,
-            userTokenAccount: userTokenAccount,
-            vault: vaultPda,
-            vaultAuthority: vaultAuthorityPda,
-            tokenProgram: TOKEN_PROGRAM_ID,
-        })
+        .accountsStrict(unstakeAccounts)
         .signers([user])
         .rpc();
       assert.fail("Unstaking should have failed but it succeeded.");
@@ -219,17 +230,20 @@ describe("aim_staking_program", () => {
     const stakeInfoAccountBefore = await program.account.userStakeInfo.fetch(stakeInfoPda);
     const amountStaked = stakeInfoAccountBefore.amount;
 
+    const emergencyUnstakeAccounts = {
+      projectConfig: projectConfigPda,
+      stakeInfo: stakeInfoPda,
+      user: user.publicKey,
+      userTokenAccount: userTokenAccount,
+      vault: vaultPda,
+      vaultAuthority: vaultAuthorityPda,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    };
+    console.log("emergencyUnstake accounts:", JSON.stringify(emergencyUnstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+
     await program.methods
       .emergencyUnstake()
-      .accountsStrict({
-        projectConfig: projectConfigPda,
-        stakeInfo: stakeInfoPda,
-        user: user.publicKey,
-        userTokenAccount: userTokenAccount,
-        vault: vaultPda,
-        vaultAuthority: vaultAuthorityPda,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
+      .accountsStrict(emergencyUnstakeAccounts)
       .signers([user])
       .rpc();
     
