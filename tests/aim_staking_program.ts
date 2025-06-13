@@ -12,13 +12,12 @@ describe("aim_staking_program", () => {
   const authority = provider.wallet.publicKey;
   // Use a fixed keypair for development to manually fund it.
   // Public key: 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM
-  const userSecretKey = new Uint8Array([
-    174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
-    222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246,
-    128, 155, 115, 185, 243, 174, 143, 86, 6, 114, 154, 90, 54, 157, 79, 75,
-    145, 228, 188, 245, 248, 65, 194, 24, 179, 138, 80, 153, 83, 233, 233, 116
-  ]);
-  const user = anchor.web3.Keypair.fromSecretKey(userSecretKey);
+  const user = anchor.web3.Keypair.fromSecretKey(
+    Uint8Array.from([
+      174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+      222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246
+    ])
+  );
 
   let tokenMint: anchor.web3.PublicKey;
   let userTokenAccount: anchor.web3.PublicKey;
