@@ -148,8 +148,9 @@ describe("aim_staking_program", () => {
     };
     console.log("registerProject accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
+    const projectName = "My Test Project";
     const txid_register = await program.methods
-      .registerProject()
+      .registerProject(projectName)
       .accountsStrict(accounts)
       .rpc();
     console.log("registerProject transaction:", txid_register);
@@ -160,11 +161,12 @@ describe("aim_staking_program", () => {
     const projectConfigAccount = await program.account.projectConfig.fetch(projectConfigPda);
     assert.ok(projectConfigAccount.tokenMint.equals(tokenMint));
     assert.ok(projectConfigAccount.vault.equals(vaultPda));
+    assert.equal(projectConfigAccount.name, projectName);
   });
 
   it("Stakes tokens (1st stake)", async () => {
     const amountToStake = new anchor.BN(100 * 10 ** 9);
-    const durationDays = 7;
+    const durationDays = 1;
     const stakeId = new anchor.BN(1);
 
     const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(

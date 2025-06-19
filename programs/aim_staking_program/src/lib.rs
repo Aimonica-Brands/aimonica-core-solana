@@ -14,7 +14,10 @@ pub mod aim_staking_program {
         Ok(())
     }
 
-    pub fn register_project(ctx: Context<RegisterProject>) -> Result<()> {
+    pub fn register_project(ctx: Context<RegisterProject>, name: String) -> Result<()> {
+        if name.len() > 32 {
+            return err!(ErrorCode::NameTooLong);
+        }
         let platform_config = &mut ctx.accounts.platform_config;
         let project_config = &mut ctx.accounts.project_config;
 
@@ -22,6 +25,7 @@ pub mod aim_staking_program {
         project_config.authority = *ctx.accounts.authority.key;
         project_config.token_mint = ctx.accounts.token_mint.key();
         project_config.vault = ctx.accounts.vault.key();
+        project_config.name = name;
         
         platform_config.project_count += 1;
         Ok(())
@@ -29,7 +33,7 @@ pub mod aim_staking_program {
 
     pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
         // Validate duration
-        if ![7, 14, 30].contains(&duration_days) {
+        if ![1, 7, 14, 30].contains(&duration_days) {
             return err!(ErrorCode::InvalidDuration);
         }
 
@@ -152,6 +156,7 @@ pub struct ProjectConfig {
     pub authority: Pubkey,
     pub token_mint: Pubkey,
     pub vault: Pubkey,
+    pub name: String,
 }
 
 #[account]
@@ -195,7 +200,7 @@ pub struct RegisterProject<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 8 + 32 + 32 + 32,
+        space = 8 + 8 + 32 + 32 + 32 + (4 + 32),
         seeds = [b"project", platform_config.project_count.to_le_bytes().as_ref()],
         bump
     )]
@@ -318,8 +323,10 @@ pub struct EmergencyUnstakeEvent {
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Invalid staking duration. Only 7, 14, or 30 days are allowed.")]
+    #[msg("Invalid staking duration. Only 1, 7, 14, or 30 days are allowed.")]
     InvalidDuration,
     #[msg("Lockup period has not ended yet.")]
     LockupPeriodNotEnded,
+    #[msg("Project name cannot exceed 32 characters.")]
+    NameTooLong,
 }
