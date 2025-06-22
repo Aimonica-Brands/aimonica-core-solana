@@ -3,10 +3,29 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 declare_id!("5BH7DL2muAL9w3LYcZWcB1U8JA1dc7KFaCfTpKJ5RjmD");
 
+/// # AIM Staking Program
+///
+/// A flexible staking program on Solana built with Anchor.
+/// This program allows a platform authority to manage multiple staking projects.
+/// Each project has its own configuration for staking tokens, fees, and vaults.
+/// Users can stake tokens for various durations and receive rewards (rewards not implemented yet).
+/// It supports standard unstaking after a lock-up period and an emergency unstake option.
 #[program]
 pub mod aim_staking_program {
     use super::*;
 
+    /// Initializes the staking platform.
+    ///
+    /// This must be the first instruction called. It sets up a singleton `PlatformConfig`
+    /// account that holds global platform settings and tracks the number of projects.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction, including the authority and accounts to initialize.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform is already initialized.
     pub fn initialize_platform(ctx: Context<InitializePlatform>) -> Result<()> {
         let platform_config = &mut ctx.accounts.platform_config;
         platform_config.authority = *ctx.accounts.authority.key;
@@ -14,6 +33,19 @@ pub mod aim_staking_program {
         Ok(())
     }
 
+    /// Registers a new staking project on the platform.
+    ///
+    /// This can only be called by the platform authority. It creates a new `ProjectConfig`
+    /// account, a token vault for the project, and increments the platform's project counter.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `name` - A human-readable name for the project (max 32 characters).
+    ///
+    /// # Errors
+    ///
+    /// Returns `NameTooLong` if the provided name exceeds 32 characters.
     pub fn register_project(ctx: Context<RegisterProject>, name: String) -> Result<()> {
         if name.len() > 32 {
             return err!(ErrorCode::NameTooLong);
@@ -34,6 +66,17 @@ pub mod aim_staking_program {
         Ok(())
     }
 
+    /// Updates the configuration of an existing project.
+    ///
+    /// This can only be called by the project's authority. It allows updating the
+    /// fee wallet, unstake fee, and emergency unstake fee.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `fee_wallet` - The new public key of the wallet to receive fees.
+    /// * `unstake_fee_bps` - The new fee in basis points for normal unstaking.
+    /// * `emergency_unstake_fee_bps` - The new fee in basis points for emergency unstaking.
     pub fn update_project_config(
         ctx: Context<UpdateProjectConfig>,
         fee_wallet: Pubkey,
@@ -47,6 +90,21 @@ pub mod aim_staking_program {
         Ok(())
     }
 
+    /// Stakes a specified amount of tokens for a user.
+    ///
+    * This instruction transfers tokens from the user's account to the project's vault
+    * and creates a `UserStakeInfo` account to track the stake's details.
+    *
+    * # Arguments
+    *
+    * * `ctx` - The context for this instruction.
+    * * `amount` - The amount of tokens to stake.
+    * * `duration_days` - The lock-up duration for the stake (e.g., 1, 7, 14, 30).
+    * * `stake_id` - A client-generated unique ID for this stake, allowing a user to have multiple stakes.
+    *
+    * # Errors
+    *
+    * Returns `InvalidDuration` if an unsupported duration is provided.
     pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
         // Validate duration
         if ![1, 7, 14, 30].contains(&duration_days) {
@@ -85,6 +143,20 @@ pub mod aim_staking_program {
         Ok(())
     }
 
+    /// Unstakes tokens after the lock-up period has ended.
+    ///
+    /// This instruction checks if the lock-up duration has passed. If so, it transfers
+    /// the staked tokens back to the user, minus any applicable fees. The `UserStakeInfo`
+    /// account is closed, and the rent is refunded to the user.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `_stake_id` - The ID of the stake to unstake (used for PDA derivation).
+    ///
+    /// # Errors
+    ///
+    /// Returns `LockupPeriodNotEnded` if the stake is still locked.
     pub fn unstake(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
         let stake_info = &mut ctx.accounts.stake_info;
         let clock = Clock::get()?;
@@ -144,6 +216,16 @@ pub mod aim_staking_program {
         Ok(())
     }
 
+    /// Performs an emergency unstake, allowing withdrawal before the lock-up period ends.
+    ///
+    /// This instruction allows a user to bypass the lock-up period but incurs a potentially
+    /// higher fee. It transfers the tokens back to the user (minus fees) and closes the
+    /// `UserStakeInfo` account.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `_stake_id` - The ID of the stake to unstake (used for PDA derivation).
     pub fn emergency_unstake(ctx: Context<EmergencyUnstake>, _stake_id: u64) -> Result<()> {
         let stake_info = &mut ctx.accounts.stake_info;
         
@@ -199,33 +281,56 @@ pub mod aim_staking_program {
 
 // ============== ACCOUNTS ==============
 
+/// Holds global configuration for the entire staking platform.
+/// There is only one of these accounts, derived from the seed "platform".
 #[account]
 pub struct PlatformConfig {
+    /// The authority that can register new projects.
     pub authority: Pubkey,
+    /// A counter for the total number of projects, used to derive unique project PDAs.
     pub project_count: u64,
 }
 
+/// Stores the configuration for a single staking project.
 #[account]
 pub struct ProjectConfig {
+    /// A unique numerical ID for the project.
     pub project_id: u64,
+    /// The authority that can update this project's settings (e.g., fees).
     pub authority: Pubkey,
+    /// The mint of the token that can be staked in this project.
     pub token_mint: Pubkey,
+    /// The token vault (a PDA) that holds all staked tokens for this project.
     pub vault: Pubkey,
+    /// A human-readable name for the project.
     pub name: String,
+    /// The wallet that receives fees from unstaking.
     pub fee_wallet: Pubkey,
+    /// The fee in basis points (1/100th of 1%) for a normal unstake.
     pub unstake_fee_bps: u16,
+    /// The fee in basis points for an emergency unstake.
     pub emergency_unstake_fee_bps: u16,
 }
 
+/// Holds the details of a single user's stake.
+/// A user can have multiple stake accounts for the same project.
 #[account]
 pub struct UserStakeInfo {
+    /// The user who owns this stake.
     pub user: Pubkey,
+    /// A reference to the `ProjectConfig` this stake belongs to.
     pub project_config: Pubkey,
+    /// The ID of the project this stake belongs to.
     pub project_id: u64,
+    /// A unique identifier for this stake, provided by the client.
     pub stake_id: u64,
+    /// The amount of tokens staked.
     pub amount: u64,
+    /// The Unix timestamp when the stake was created.
     pub stake_timestamp: i64,
+    /// The duration of the stake lock-up in days.
     pub duration_days: u32,
+    /// A flag indicating if the tokens are currently staked.
     pub is_staked: bool,
 }
 
@@ -406,28 +511,44 @@ pub struct EmergencyUnstake<'info> {
 
 // ============== EVENTS ==============
 
+/// Emitted when a user stakes tokens.
 #[event]
 pub struct StakeEvent {
+    /// The user who staked the tokens.
     pub user: Pubkey,
+    /// The ID of the project where the stake was made.
     pub project_id: u64,
+    /// The unique ID of the stake.
     pub stake_id: u64,
+    /// The amount of tokens staked.
     pub amount: u64,
+    /// The lock-up duration in days.
     pub duration_days: u32,
 }
 
+/// Emitted when a user unstakes their tokens after the lock-up period.
 #[event]
 pub struct UnstakeEvent {
+    /// The user who unstaked the tokens.
     pub user: Pubkey,
+    /// The ID of the project from which the unstake occurred.
     pub project_id: u64,
+    /// The unique ID of the stake that was unstaked.
     pub stake_id: u64,
+    /// The original amount of tokens in the stake.
     pub amount: u64,
 }
 
+/// Emitted when a user performs an emergency unstake.
 #[event]
 pub struct EmergencyUnstakeEvent {
+    /// The user who performed the emergency unstake.
     pub user: Pubkey,
+    /// The ID of the project from which the unstake occurred.
     pub project_id: u64,
+    /// The unique ID of the stake that was unstaked.
     pub stake_id: u64,
+    /// The original amount of tokens in the stake.
     pub amount: u64,
 }
 
