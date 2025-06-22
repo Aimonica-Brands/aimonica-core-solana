@@ -117,6 +117,28 @@ To test and interact with the program, you can use the following commands.
     anchor test
     ```
 
+## Testing
+
+This project uses `mocha` for testing and `mochawesome` to generate HTML reports.
+
+### Run Tests
+
+To execute the test suite, run the following command. This will run all tests defined in the `tests/` directory.
+
+```bash
+npm test
+```
+
+### Generate Test Report
+
+To run the tests and generate a user-friendly HTML report, use this command:
+
+```bash
+npm run test:report
+```
+
+After the tests complete, the report will be available at `mochawesome-report/mochawesome.html`. You can open this file in your browser to view a detailed breakdown of the test results.
+
 ## Program Details
 
 ### Accounts
