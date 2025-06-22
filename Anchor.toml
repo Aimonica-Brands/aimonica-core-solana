@@ -12,7 +12,7 @@ cluster = "Devnet"
 wallet = "/Users/havencross/.config/solana/id.json"
 
 [scripts]
-test = "RUSTFLAGS='-Cinstrument-coverage' CARGO_INCREMENTAL=0 LLVM_PROFILE_FILE='target/coverage/aim_staking_program-%p-%m.profraw' yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [test]
 startup_wait = 30000
