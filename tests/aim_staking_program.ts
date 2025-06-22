@@ -18,7 +18,7 @@ describe("aim_staking_program", () => {
   // Using a fixed keypair for the fee wallet for consistent testing.
   // The secret key must be a 64-byte array and cryptographically valid.
   const feeWallet = anchor.web3.Keypair.fromSecretKey(
-    Uint8Array.from([171,11,241,161,249,153,148,220,128,154,227,65,4,138,159,104,129,181,35,16,63,22,203,13,56,199,44,228,106,94,223,59,215,21,252,244,149,173,121,203,192,110,63,18,5,10,13,222,158,210,16,4,213,205,174,184,24,196,155,115,4,207,24,10])
+    Uint8Array.from([29,86,39,101,159,45,98,248,245,180,94,32,142,241,153,168,220,15,226,131,233,50,204,106,183,196,82,12,242,69,158,30,93,52,30,214,192,107,155,91,239,210,114,57,115,167,200,38,98,199,105,170,93,128,61,55,139,161,4,28,165,46,180,108])
   );
 
   let tokenMint: anchor.web3.PublicKey;
