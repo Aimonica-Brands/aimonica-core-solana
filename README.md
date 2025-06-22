@@ -5,10 +5,13 @@ A flexible staking program on Solana, built with Anchor.
 ## Features
 
 - **Platform Initialization**: A central authority can initialize the staking platform.
-- **Project Registration**: The authority can register multiple staking projects, each with its own token and vault.
+- **Project Registration**: The authority can register multiple staking projects.
+- **Configurable Projects**: Each project can have its own name, staking token, and vault.
+- **Fee Management**: Project authority can set a separate fee wallet and configure fees for unstaking and emergency unstaking.
 - **Flexible Staking**: Users can stake tokens for predefined durations (e.g., 7, 14, 30 days).
-- **Standard Unstake**: Users can withdraw their staked tokens and rewards after the lock-up period.
-- **Emergency Unstake**: A failsafe option for users to withdraw their tokens immediately if needed, forfeiting any rewards.
+- **Multiple Stakes**: Users can have multiple, independent stakes within the same project.
+- **Standard Unstake**: Users can withdraw their staked tokens and any rewards (if applicable, not implemented in this version) after the lock-up period, minus a small fee.
+- **Emergency Unstake**: A failsafe option for users to withdraw their tokens immediately if needed, potentially incurring a higher fee and forfeiting any rewards.
 
 ## Getting Started
 
@@ -143,17 +146,63 @@ After the tests complete, the report will be available at `mochawesome-report/mo
 
 ### Accounts
 
--   `PlatformConfig`: Singleton account to hold platform-wide configuration like the authority and project count.
--   `ProjectConfig`: Stores details for each staking project, including its authority, token mint, and vault address.
--   `UserStakeInfo`: Holds information about a user's stake, such as the amount, stake time, and duration.
+-   `PlatformConfig`: Singleton account to hold platform-wide configuration.
+    -   `authority`: The public key with the authority to register new projects.
+    -   `project_count`: A counter for the number of projects registered, used for deriving project PDAs.
+
+-   `ProjectConfig`: Stores details for each staking project.
+    -   `project_id`: A unique ID for the project.
+    -   `authority`: The public key with the authority to update the project configuration (e.g., fees).
+    -   `token_mint`: The mint address of the token that can be staked in this project.
+    -   `vault`: The address of the token account (PDA) that holds all staked tokens for the project.
+    -   `name`: A human-readable name for the project (up to 32 characters).
+    -   `fee_wallet`: The public key of the wallet that will receive unstaking fees.
+    -   `unstake_fee_bps`: The fee in basis points (1/100th of 1%) charged on a normal unstake.
+    -   `emergency_unstake_fee_bps`: The fee in basis points charged on an emergency unstake.
+
+-   `UserStakeInfo`: Holds information about a user's individual stake. A user can have multiple `UserStakeInfo` accounts for a single project.
+    -   `user`: The public key of the user who made the stake.
+    -   `project_config`: The public key of the `ProjectConfig` this stake belongs to.
+    -   `project_id`: The ID of the project.
+    -   `stake_id`: A unique identifier for this specific stake, provided by the user. Allows for multiple stakes per user per project.
+    -   `amount`: The amount of tokens staked.
+    -   `stake_timestamp`: The Unix timestamp when the stake was created.
+    -   `duration_days`: The duration of the stake in days.
+    -   `is_staked`: A boolean flag indicating if the stake is currently active.
 
 ### Instructions
 
--   `initialize_platform()`: Initializes the `PlatformConfig`.
--   `register_project()`: Creates a new `ProjectConfig` for a new staking pool.
--   `stake(amount, duration_days)`: Stakes a certain `amount` of tokens for a specified `duration_days`.
--   `unstake()`: Allows a user to withdraw their tokens after the staking period.
--   `emergency_unstake()`: Allows immediate withdrawal of staked tokens.
+-   `initialize_platform()`: Initializes the `PlatformConfig` singleton. Must be called once before any other instructions.
+    -   **Signer:** Platform Authority
+
+-   `register_project(name: String)`: Creates a new `ProjectConfig` for a new staking pool.
+    -   **Signer:** Platform Authority
+    -   **Args:**
+        -   `name`: A name for the new project (max 32 chars).
+
+-   `update_project_config(fee_wallet: Pubkey, unstake_fee_bps: u16, emergency_unstake_fee_bps: u16)`: Updates the configuration for an existing project.
+    -   **Signer:** Project Authority
+    -   **Args:**
+        -   `fee_wallet`: The new wallet to receive fees.
+        -   `unstake_fee_bps`: The new fee for regular unstakes.
+        -   `emergency_unstake_fee_bps`: The new fee for emergency unstakes.
+
+-   `stake(amount: u64, duration_days: u32, stake_id: u64)`: Stakes a certain `amount` of tokens for a specified `duration_days`.
+    -   **Signer:** User
+    -   **Args:**
+        -   `amount`: The number of tokens to stake.
+        -   `duration_days`: The staking duration. Supported values: 1, 7, 14, 30.
+        -   `stake_id`: A client-generated unique ID for the stake.
+
+-   `unstake(stake_id: u64)`: Allows a user to withdraw their tokens after the staking lock-up period has ended. The unstake fee will be deducted from the staked amount.
+    -   **Signer:** User
+    -   **Args:**
+        -   `stake_id`: The ID of the stake to withdraw.
+
+-   `emergency_unstake(stake_id: u64)`: Allows immediate withdrawal of staked tokens before the lock-up period ends. The emergency unstake fee will be deducted.
+    -   **Signer:** User
+    -   **Args:**
+        -   `stake_id`: The ID of the stake to withdraw.
 
 ### Events
 
@@ -164,4 +213,16 @@ After the tests complete, the report will be available at `mochawesome-report/mo
 ### Errors
 
 -   `InvalidDuration`: Thrown if an unsupported staking duration is provided.
--   `LockupPeriodNotEnded`: Thrown if a user tries to unstake before the lock-up period is over. 
+-   `LockupPeriodNotEnded`: Thrown if a user tries to unstake before the lock-up period is over.
+-   `NameTooLong`: Thrown if the project name in `register_project` exceeds 32 characters.
+-   `InvalidFeeWallet`: Thrown if the provided fee wallet account is incorrect during an unstake.
+
+### PDAs (Program Derived Addresses)
+
+The program uses several PDAs to manage accounts. Here is how they are derived:
+
+-   **Platform Config:** `[b"platform"]`
+-   **Project Config:** `[b"project", project_count.to_le_bytes()]`
+-   **Vault:** `[b"vault", project_count.to_le_bytes()]`
+-   **Vault Authority:** `[b"vault-authority", project_count.to_le_bytes()]`
+-   **Stake Info:** `[b"stake", project_config_pubkey.to_bytes(), user_pubkey.to_bytes(), stake_id.to_le_bytes()]` 
