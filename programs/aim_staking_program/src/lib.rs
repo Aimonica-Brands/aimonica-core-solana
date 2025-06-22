@@ -92,19 +92,19 @@ pub mod aim_staking_program {
 
     /// Stakes a specified amount of tokens for a user.
     ///
-    * This instruction transfers tokens from the user's account to the project's vault
-    * and creates a `UserStakeInfo` account to track the stake's details.
-    *
-    * # Arguments
-    *
-    * * `ctx` - The context for this instruction.
-    * * `amount` - The amount of tokens to stake.
-    * * `duration_days` - The lock-up duration for the stake (e.g., 1, 7, 14, 30).
-    * * `stake_id` - A client-generated unique ID for this stake, allowing a user to have multiple stakes.
-    *
-    * # Errors
-    *
-    * Returns `InvalidDuration` if an unsupported duration is provided.
+    // * This instruction transfers tokens from the user's account to the project's vault
+    // * and creates a `UserStakeInfo` account to track the stake's details.
+    // *
+    // * # Arguments
+    // *
+    // * * `ctx` - The context for this instruction.
+    // * * `amount` - The amount of tokens to stake.
+    // * * `duration_days` - The lock-up duration for the stake (e.g., 1, 7, 14, 30).
+    // * * `stake_id` - A client-generated unique ID for this stake, allowing a user to have multiple stakes.
+    // *
+    // * # Errors
+    // *
+    // * Returns `InvalidDuration` if an unsupported duration is provided.
     pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
         // Validate duration
         if ![1, 7, 14, 30].contains(&duration_days) {
