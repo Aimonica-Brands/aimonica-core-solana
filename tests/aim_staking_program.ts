@@ -15,9 +15,14 @@ describe("aim_staking_program", () => {
   const user = anchor.web3.Keypair.fromSecretKey(
     Uint8Array.from([104,6,27,155,224,174,1,74,31,122,9,169,139,243,245,178,51,62,178,251,223,165,114,130,221,223,189,211,211,108,114,234,166,181,206,158,177,135,230,10,6,143,200,153,178,235,105,165,170,148,170,169,97,108,202,97,159,84,49,207,127,17,47,150])
   );
+  // Using a fixed keypair for the fee wallet for consistent testing
+  const feeWallet = anchor.web3.Keypair.fromSecretKey(
+    Uint8Array.from([20,8,150,100,50,200,2,80,40,130,1,170,140,240,250,180,55,65,185,255,220,175,120,140,230,240,190,220,215,110,120,240,170,185,210,160,180,140,235,15,10,150,210,160,185,240,110,175,155,150,175,100,115,210,100,165,90,55,215,130,20,50,155])
+  );
 
   let tokenMint: anchor.web3.PublicKey;
   let userTokenAccount: anchor.web3.PublicKey;
+  let feeWalletTokenAccount: anchor.web3.PublicKey;
 
   let platformConfigPda: anchor.web3.PublicKey;
   let projectConfigPda: anchor.web3.PublicKey;
@@ -37,8 +42,17 @@ describe("aim_staking_program", () => {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   before(async () => {
+    // Airdrop to user and fee wallet for account creation fees
+    // On devnet/testnet, airdrops can be unreliable. It's better to fund these accounts manually.
+    // await provider.connection.requestAirdrop(user.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
+    // await provider.connection.requestAirdrop(feeWallet.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
+    
+    // Give it a moment to process the airdrop
+    // await sleep(500);
+
     console.log(`User public key: ${user.publicKey.toBase58()}`);
-    // On devnet, requestAirdrop can fail. Using a fixed keypair and funding it manually.
+    console.log(`Fee wallet public key: ${feeWallet.publicKey.toBase58()}`);
+    console.log("Please ensure both accounts are funded with some SOL on devnet/testnet if you see errors.");
 
     // Create a new token mint
     tokenMint = await createMint(
@@ -47,6 +61,14 @@ describe("aim_staking_program", () => {
       authority,
       null,
       9
+    );
+
+    // Create token account for the fee wallet
+    feeWalletTokenAccount = await createAssociatedTokenAccount(
+      provider.connection,
+      (provider.wallet as any).payer, // The authority pays for this transaction
+      tokenMint,
+      feeWallet.publicKey
     );
 
     // Create token account for the user
@@ -162,6 +184,32 @@ describe("aim_staking_program", () => {
     assert.ok(projectConfigAccount.tokenMint.equals(tokenMint));
     assert.ok(projectConfigAccount.vault.equals(vaultPda));
     assert.equal(projectConfigAccount.name, projectName);
+    assert.ok(projectConfigAccount.feeWallet.equals(authority));
+    assert.equal(projectConfigAccount.unstakeFeeBps, 0);
+    assert.equal(projectConfigAccount.emergencyUnstakeFeeBps, 0);
+  });
+
+  it("Updates project config for fees", async () => {
+    const unstakeFeeBps = 100; // 1%
+    const emergencyUnstakeFeeBps = 100; // 1%
+
+    const accounts = {
+        projectConfig: projectConfigPda,
+        authority: authority,
+    };
+    console.log("updateProjectConfig accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+
+    const txid = await program.methods
+      .updateProjectConfig(feeWallet.publicKey, unstakeFeeBps, emergencyUnstakeFeeBps)
+      .accountsStrict(accounts)
+      .rpc();
+    
+    console.log("updateProjectConfig transaction:", txid);
+
+    const projectConfigAccount = await program.account.projectConfig.fetch(projectConfigPda);
+    assert.ok(projectConfigAccount.feeWallet.equals(feeWallet.publicKey));
+    assert.equal(projectConfigAccount.unstakeFeeBps, unstakeFeeBps);
+    assert.equal(projectConfigAccount.emergencyUnstakeFeeBps, emergencyUnstakeFeeBps);
   });
 
   it("Stakes tokens (1st stake)", async () => {
@@ -255,6 +303,7 @@ describe("aim_staking_program", () => {
         userTokenAccount: userTokenAccount,
         vault: vaultPda,
         vaultAuthority: vaultAuthorityPda,
+        feeWallet: feeWalletTokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
       };
       console.log("unstake accounts:", JSON.stringify(unstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
@@ -287,10 +336,12 @@ describe("aim_staking_program", () => {
     const stakeToUnstake = stakes[0];
     const remainingStake = stakes[1];
     
+    const projectConfig = await program.account.projectConfig.fetch(projectConfigPda);
     const userTokenAccountBefore = await getAccount(provider.connection, userTokenAccount);
     const stakeInfoAccountBefore = await program.account.userStakeInfo.fetch(stakeToUnstake.pda);
     const amountStaked = stakeInfoAccountBefore.amount;
     const vaultAccountBefore = await getAccount(provider.connection, vaultPda);
+    const feeWalletAccountBefore = await getAccount(provider.connection, feeWalletTokenAccount);
 
     const emergencyUnstakeAccounts = {
       projectConfig: projectConfigPda,
@@ -299,6 +350,7 @@ describe("aim_staking_program", () => {
       userTokenAccount: userTokenAccount,
       vault: vaultPda,
       vaultAuthority: vaultAuthorityPda,
+      feeWallet: feeWalletTokenAccount,
       tokenProgram: TOKEN_PROGRAM_ID,
     };
     console.log("emergencyUnstake accounts:", JSON.stringify(emergencyUnstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
@@ -317,9 +369,16 @@ describe("aim_staking_program", () => {
         assert.include(error.message, "Account does not exist");
     }
 
+    const feeAmount = BigInt(amountStaked.toString()) * BigInt(projectConfig.emergencyUnstakeFeeBps) / BigInt(10000);
+    const amountToUser = BigInt(amountStaked.toString()) - feeAmount;
+
     const userTokenAccountAfter = await getAccount(provider.connection, userTokenAccount);
-    const expectedBalance = BigInt(userTokenAccountBefore.amount.toString()) + BigInt(amountStaked.toString());
-    assert.equal(userTokenAccountAfter.amount.toString(), expectedBalance.toString());
+    const expectedUserBalance = BigInt(userTokenAccountBefore.amount.toString()) + amountToUser;
+    assert.equal(userTokenAccountAfter.amount.toString(), expectedUserBalance.toString());
+
+    const feeWalletAccountAfter = await getAccount(provider.connection, feeWalletTokenAccount);
+    const expectedFeeWalletBalance = BigInt(feeWalletAccountBefore.amount.toString()) + feeAmount;
+    assert.equal(feeWalletAccountAfter.amount.toString(), expectedFeeWalletBalance.toString());
 
     const vaultAccountAfter = await getAccount(provider.connection, vaultPda);
     const expectedVaultAmount = BigInt(vaultAccountBefore.amount) - BigInt(amountStaked.toString());
