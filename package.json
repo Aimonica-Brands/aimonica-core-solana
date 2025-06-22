@@ -2,7 +2,7 @@
     "scripts": {
         "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
         "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-        "coverage": "ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=/Users/havencross/.config/solana/id.json nyc ts-mocha -p tsconfig.json tests/**/*.ts"
+        "coverage": "ANCHOR_PROVIDER_URL=https://api.devnet.solana.com nyc ts-mocha -p tsconfig.json -t 1000000 tests/**/*.ts"
     },
     "dependencies": {
         "@coral-xyz/anchor": "^0.31.1"
