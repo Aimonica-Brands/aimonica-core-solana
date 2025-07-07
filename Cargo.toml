@@ -1,6 +1,7 @@
 [workspace]
+resolver = "2"
 members = [
-    "programs/*"
+    "programs/aim_staking_program"
 ]
 
 [profile.release]
