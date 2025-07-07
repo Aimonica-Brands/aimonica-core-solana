@@ -11,7 +11,7 @@ declare_id!("DdB4xNCwXYoVfanj9Kek3CWJN1jDD9MZXxLeAYnh5u4Y");
 /// Users can stake tokens for various durations and receive rewards (rewards not implemented yet).
 /// It supports standard unstaking after a lock-up period and an emergency unstake option.
 #[program]
-pub mod aim_staking_program {
+pub mod aim_staking_program_v2 {
     use super::*;
 
     /// Initializes the staking platform.

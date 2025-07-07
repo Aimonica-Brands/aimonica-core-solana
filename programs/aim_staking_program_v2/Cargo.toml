@@ -1,12 +1,12 @@
 [package]
-name = "aim_staking_program"
+name = "aim_staking_program_v2"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "aim_staking_program"
+name = "aim_staking_program_v2"
 
 [features]
 no-entrypoint = []

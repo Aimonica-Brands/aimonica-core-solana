@@ -28,9 +28,9 @@ All "write" operations that result in a blockchain transaction are listed below.
 Read-only interactions, such as fetching account states (`PlatformConfig`, `ProjectConfig`, `UserStakeInfo`) to display on a frontend, are also necessary but do not involve transactions or signatures from the user. The program also emits events (`StakeEvent`, `UnstakeEvent`, `EmergencyUnstakeEvent`) which can be monitored by off-chain services.
 
 #### **Smart contracts design**
-The system consists of a single on-chain program (`aim_staking_program`) that orchestrates all logic. It interacts with standard Solana programs (`System Program` for account creation, `SPL Token Program` for token transfers).
+The system consists of a single on-chain program (`aim_staking_program_v2`) that orchestrates all logic. It interacts with standard Solana programs (`System Program` for account creation, `SPL Token Program` for token transfers).
 
-**1. On-chain Program: `aim_staking_program`**
+**1. On-chain Program: `aim_staking_program_v2`**
 *   **Role:** This is the core program containing all business logic for platform setup, project management, and user staking actions.
 *   **Accounts Managed:**
     *   `PlatformConfig`: A singleton PDA (`seeds = [b"platform"]`) storing global configuration.
@@ -58,7 +58,7 @@ The system consists of a single on-chain program (`aim_staking_program`) that or
 There is no complex migration script (`migrations/deploy.ts` is empty). The deployment and initialization process relies on standard Anchor tooling and the test scripts.
 1.  **Deployment:** The program is deployed using `anchor deploy`. This uploads the compiled Rust code to the Solana network and associates it with a program ID.
 2.  **Initialization:**
-    *   A client-side script (like the one in `tests/aim_staking_program.ts`) is responsible for calling the initial instructions.
+    *   A client-side script (like the one in `tests/aim_staking_program_v2.ts`) is responsible for calling the initial instructions.
     *   `initialize_platform` must be called once by the designated authority wallet to create the `PlatformConfig` account.
     *   Subsequently, the same authority calls `register_project` to create one or more staking pools.
 

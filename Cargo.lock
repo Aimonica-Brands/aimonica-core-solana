@@ -60,7 +60,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "aim_staking_program"
+name = "aim_staking_program_v2"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",

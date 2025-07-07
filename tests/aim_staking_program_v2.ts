@@ -1,14 +1,14 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { AimStakingProgram } from "../target/types/aim_staking_program";
+import { AimStakingProgramV2 } from "../target/types/aim_staking_program_v2";
 import { TOKEN_PROGRAM_ID, createMint, createAssociatedTokenAccount, mintTo, getAccount, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { assert } from "chai";
 
-describe("aim_staking_program", () => {
+describe("aim_staking_program_v2", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.AimStakingProgram as Program<AimStakingProgram>;
+  const program = anchor.workspace.AimStakingProgramV2 as Program<AimStakingProgramV2>;
   const authority = provider.wallet.publicKey;
   // Use a fixed keypair for development to manually fund it.
   // Public key: CDmUCaBAUVa7eERKFJr3PER1aeknpTLdkbmzuFR6MhJm

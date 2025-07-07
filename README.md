@@ -77,16 +77,16 @@ For more details, refer to the [official Anchor installation guide](https://www.
     ```bash
     anchor keys list
     ```
-    It will output something like `aim_staking: <new-program-id>`. Copy the `<new-program-id>`.
+    It will output something like `aim_staking_program_v2: <new-program-id>`. Copy the `<new-program-id>`.
 
     Next, open `Anchor.toml` and update the `aim_staking` address under `[programs.localnet]` with the new program ID.
 
     ```toml
     [programs.localnet]
-    aim_staking_program = "<new-program-id>"
+    aim_staking_program_v2 = "<new-program-id>"
     ```
 
-    Then, update the program ID in the source code. Open `programs/aim_staking_program/src/lib.rs` and replace the existing address in `declare_id!` with your new program ID.
+    Then, update the program ID in the source code. Open `programs/aim_staking_program_v2/src/lib.rs` and replace the existing address in `declare_id!` with your new program ID.
 
     ```rust
     declare_id!("<new-program-id>");
@@ -229,11 +229,33 @@ The program uses several PDAs to manage accounts. Here is how they are derived:
 -   **Vault Authority:** `[b"vault-authority", project_count.to_le_bytes()]`
 -   **Stake Info:** `[b"stake", project_config_pubkey.to_bytes(), user_pubkey.to_bytes(), stake_id.to_le_bytes()]`
 
+## Program Architecture
+
+### `aim_staking_program_v2`
+
+The core on-chain program contains all the business logic for staking, unstaking, and project management. It is responsible for:
+- Validating instructions.
+- Transferring tokens between users and vaults.
+- Storing and managing state in Solana accounts.
+
+### Key PDAs (Program Derived Addresses)
+
+-   **Platform Config**: `[b"platform"]`
+    -   A singleton PDA that ensures there is only one global platform configuration.
+-   **Project Config**: `[b"project", project_count.to_le_bytes()]`
+    -   Unique for each project, derived from a sequential project counter.
+-   **Vault**: `[b"vault", project_count.to_le_bytes()]`
+    -   A token account PDA for each project to hold staked tokens securely.
+-   **Vault Authority**: `[b"vault-authority", project_count.to_le_bytes()]`
+    -   A PDA that acts as the authority for the `Vault`, allowing the program to sign for token transfers.
+-   **User Stake Info**: `[b"stake", project_config_pubkey, user_pubkey, stake_id.to_le_bytes()]`
+    -   A unique PDA for each individual stake, allowing a user to have multiple stakes in the same project.
+
 ## Deployed Programs and Accounts (Devnet)
 
 This section lists the public keys for the program and related accounts deployed on the Solana Devnet, as captured from a test execution.
 
-### `aim_staking_program`
+### `aim_staking_program_v2`
 
 *   **Program ID**: `DdB4xNCwXYoVfanj9Kek3CWJN1jDD9MZXxLeAYnh5u4Y`
 

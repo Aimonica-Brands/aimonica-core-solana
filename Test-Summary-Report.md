@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-This document is a summary report of the functional tests conducted on the `aim_staking_program` Solana smart contract. The tests were designed to verify the core business logic of the staking contract, ensure its behavior is as expected under various scenarios, and guarantee the security of assets.
+This document is a summary report of the functional tests conducted on the `aim_staking_program_v2` Solana smart contract. The tests were designed to verify the core business logic of the staking contract, ensure its behavior is as expected under various scenarios, and guarantee the security of assets.
 
 The test coverage includes key functionalities from platform initialization, project registration, and parameter configuration, to user staking, unstaking, and exception handling.
 
@@ -37,7 +37,7 @@ All test cases passed successfully, indicating that the core functionalities are
 
 ## 4. Detailed Test Case Analysis
 
-The `aim_staking_program` test suite includes 8 individual test cases covering the main contract functionalities.
+The `aim_staking_program_v2` test suite includes 8 individual test cases covering the main contract functionalities.
 
 ### 4.1. `before` - Environment Initialization
 Before any tests run, the `before` hook performs the following setup tasks:
@@ -117,7 +117,7 @@ Before any tests run, the `before` hook performs the following setup tasks:
 ## 5. Summary and Recommendations
 
 ### 5.1. Summary
-This test series successfully validated the core functionalities of the `aim_staking_program` smart contract. The results show that:
+This test series successfully validated the core functionalities of the `aim_staking_program_v2` smart contract. The results show that:
 - The platform's lifecycle management (initialization, project registration, configuration updates) works correctly.
 - The user staking process (single and multiple stakes) functions as designed, with correct asset transfers.
 - Access control and security logic (e.g., preventing early unstaking) are effective.
