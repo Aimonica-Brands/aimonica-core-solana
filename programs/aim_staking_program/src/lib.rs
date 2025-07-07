@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token_interface::{self as token_interface, Mint, TokenAccount, TokenInterface, Transfer};
 
 declare_id!("5BH7DL2muAL9w3LYcZWcB1U8JA1dc7KFaCfTpKJ5RjmD");
 
@@ -59,6 +59,7 @@ pub mod aim_staking_program {
         project_config.vault = ctx.accounts.vault.key();
         project_config.name = name;
         project_config.fee_wallet = *ctx.accounts.authority.key;
+        project_config.token_program = ctx.accounts.token_program.key();
         project_config.unstake_fee_bps = 0;
         project_config.emergency_unstake_fee_bps = 0;
         
@@ -119,7 +120,7 @@ pub mod aim_staking_program {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        token::transfer(cpi_ctx, amount)?;
+        token_interface::transfer(cpi_ctx, amount)?;
 
         // Create stake info
         let stake_info = &mut ctx.accounts.stake_info;
@@ -191,7 +192,7 @@ pub mod aim_staking_program {
             };
             let cpi_program = ctx.accounts.token_program.to_account_info();
             let cpi_ctx_fee = CpiContext::new_with_signer(cpi_program, cpi_accounts_fee, signer_seeds);
-            token::transfer(cpi_ctx_fee, fee_amount)?;
+            token_interface::transfer(cpi_ctx_fee, fee_amount)?;
         }
 
         // Transfer remaining tokens to user
@@ -202,7 +203,7 @@ pub mod aim_staking_program {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-        token::transfer(cpi_ctx, amount_to_user)?;
+        token_interface::transfer(cpi_ctx, amount_to_user)?;
         
         stake_info.is_staked = false;
 
@@ -254,7 +255,7 @@ pub mod aim_staking_program {
             };
             let cpi_program = ctx.accounts.token_program.to_account_info();
             let cpi_ctx_fee = CpiContext::new_with_signer(cpi_program, cpi_accounts_fee, signer_seeds);
-            token::transfer(cpi_ctx_fee, fee_amount)?;
+            token_interface::transfer(cpi_ctx_fee, fee_amount)?;
         }
 
         let cpi_accounts = Transfer {
@@ -264,7 +265,7 @@ pub mod aim_staking_program {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-        token::transfer(cpi_ctx, amount_to_user)?;
+        token_interface::transfer(cpi_ctx, amount_to_user)?;
 
         stake_info.is_staked = false;
         
@@ -306,6 +307,8 @@ pub struct ProjectConfig {
     pub name: String,
     /// The wallet that receives fees from unstaking.
     pub fee_wallet: Pubkey,
+    /// The token program associated with the mint (SPL Token or Token-2022).
+    pub token_program: Pubkey,
     /// The fee in basis points (1/100th of 1%) for a normal unstake.
     pub unstake_fee_bps: u16,
     /// The fee in basis points for an emergency unstake.
@@ -363,12 +366,12 @@ pub struct RegisterProject<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 8 + 32 + 32 + 32 + (4 + 32) + 32 + 2 + 2,
+        space = 8 + 8 + 32 + 32 + 32 + (4 + 32) + 32 + 32 + 2 + 2,
         seeds = [b"project", platform_config.project_count.to_le_bytes().as_ref()],
         bump
     )]
     pub project_config: Account<'info, ProjectConfig>,
-    pub token_mint: Account<'info, Mint>,
+    pub token_mint: InterfaceAccount<'info, Mint>,
     #[account(
         init,
         payer = authority,
@@ -377,7 +380,7 @@ pub struct RegisterProject<'info> {
         seeds = [b"vault", platform_config.project_count.to_le_bytes().as_ref()],
         bump
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: InterfaceAccount<'info, TokenAccount>,
     /// CHECK: PDA used as vault authority
     #[account(
         seeds = [b"vault-authority", platform_config.project_count.to_le_bytes().as_ref()],
@@ -387,7 +390,7 @@ pub struct RegisterProject<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -406,7 +409,8 @@ pub struct UpdateProjectConfig<'info> {
 #[instruction(amount: u64, duration_days: u32, stake_id: u64)]
 pub struct Stake<'info> {
     #[account(
-        has_one = vault
+        has_one = vault,
+        constraint = project_config.token_program == token_program.key()
     )]
     pub project_config: Account<'info, ProjectConfig>,
     #[account(
@@ -424,16 +428,17 @@ pub struct Stake<'info> {
         constraint = user_token_account.mint == project_config.token_mint,
         constraint = user_token_account.owner == user.key()
     )]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub user_token_account: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: InterfaceAccount<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
 #[instruction(stake_id: u64)]
 pub struct Unstake<'info> {
+    #[account(constraint = project_config.token_program == token_program.key())]
     pub project_config: Account<'info, ProjectConfig>,
     #[account(
         mut,
@@ -449,12 +454,12 @@ pub struct Unstake<'info> {
         mut,
         constraint = user_token_account.mint == project_config.token_mint
     )]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub user_token_account: InterfaceAccount<'info, TokenAccount>,
     #[account(mut,
         seeds = [b"vault", project_config.project_id.to_le_bytes().as_ref()],
         bump
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: InterfaceAccount<'info, TokenAccount>,
     /// CHECK: PDA used as vault authority
     #[account(
         seeds = [b"vault-authority", project_config.project_id.to_le_bytes().as_ref()],
@@ -466,13 +471,14 @@ pub struct Unstake<'info> {
         constraint = fee_wallet.mint == project_config.token_mint,
         constraint = fee_wallet.owner == project_config.fee_wallet @ ErrorCode::InvalidFeeWallet
     )]
-    pub fee_wallet: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
+    pub fee_wallet: InterfaceAccount<'info, TokenAccount>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
 #[instruction(stake_id: u64)]
 pub struct EmergencyUnstake<'info> {
+    #[account(constraint = project_config.token_program == token_program.key())]
     pub project_config: Account<'info, ProjectConfig>,
     #[account(
         mut,
@@ -488,12 +494,12 @@ pub struct EmergencyUnstake<'info> {
         mut,
         constraint = user_token_account.mint == project_config.token_mint
     )]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub user_token_account: InterfaceAccount<'info, TokenAccount>,
     #[account(mut,
         seeds = [b"vault", project_config.project_id.to_le_bytes().as_ref()],
         bump
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: InterfaceAccount<'info, TokenAccount>,
     /// CHECK: PDA used as vault authority
     #[account(
         seeds = [b"vault-authority", project_config.project_id.to_le_bytes().as_ref()],
@@ -505,8 +511,8 @@ pub struct EmergencyUnstake<'info> {
         constraint = fee_wallet.mint == project_config.token_mint,
         constraint = fee_wallet.owner == project_config.fee_wallet @ ErrorCode::InvalidFeeWallet
     )]
-    pub fee_wallet: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
+    pub fee_wallet: InterfaceAccount<'info, TokenAccount>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 // ============== EVENTS ==============
