@@ -1,7 +1,7 @@
 [features]
 seeds = false
 skip-lint = false
-[programs.localnet]
+[programs.devnet]
 aim_staking_program = "2EYmHbfTeFYMc5xNjXp4pd1Y6M2b4fLdrWPucwMHSAJz"
 
 [registry]
