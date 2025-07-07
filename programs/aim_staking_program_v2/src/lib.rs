@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{self as token_interface, Mint, TokenAccount, TokenInterface, Transfer};
 
-declare_id!("DdB4xNCwXYoVfanj9Kek3CWJN1jDD9MZXxLeAYnh5u4Y");
+declare_id!("FG8P631H9q5b53qsVM9aD71GZTWBKvujtqeWUGstpeka");
 
 /// # AIM Staking Program
 ///

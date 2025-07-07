@@ -257,7 +257,7 @@ This section lists the public keys for the program and related accounts deployed
 
 ### `aim_staking_program_v2`
 
-*   **Program ID**: `DdB4xNCwXYoVfanj9Kek3CWJN1jDD9MZXxLeAYnh5u4Y`
+*   **Program ID**: `FG8P631H9q5b53qsVM9aD71GZTWBKvujtqeWUGstpeka`
 
 ### Key Actors & Wallets
 
