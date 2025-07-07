@@ -6,9 +6,10 @@ A flexible staking program on Solana, built with Anchor.
 
 - **Platform Initialization**: A central authority can initialize the staking platform.
 - **Project Registration**: The authority can register multiple staking projects.
-- **Configurable Projects**: Each project can have its own name, staking token, and vault.
+- **Configurable Projects**: Each project can have its own name, staking token (SPL Token or Token-2022), and vault.
 - **Fee Management**: Project authority can set a separate fee wallet and configure fees for unstaking and emergency unstaking.
-- **Flexible Staking**: Users can stake tokens for predefined durations (e.g., 7, 14, 30 days).
+- **Token-2022 Support**: The program is compatible with both the standard SPL Token and the newer Token-2022 standard, allowing for a wider range of tokens to be staked.
+- **Flexible Staking**: Users can stake tokens for predefined durations (e.g., 1, 7, 14, 30 days).
 - **Multiple Stakes**: Users can have multiple, independent stakes within the same project.
 - **Standard Unstake**: Users can withdraw their staked tokens and any rewards (if applicable, not implemented in this version) after the lock-up period, minus a small fee.
 - **Emergency Unstake**: A failsafe option for users to withdraw their tokens immediately if needed, potentially incurring a higher fee and forfeiting any rewards.
@@ -82,10 +83,10 @@ For more details, refer to the [official Anchor installation guide](https://www.
 
     ```toml
     [programs.localnet]
-    aim_staking = "<new-program-id>"
+    aim_staking_program = "<new-program-id>"
     ```
 
-    Then, update the program ID in the source code. Open `programs/aim-staking/src/lib.rs` and replace the existing address in `declare_id!` with your new program ID.
+    Then, update the program ID in the source code. Open `programs/aim_staking_program/src/lib.rs` and replace the existing address in `declare_id!` with your new program ID.
 
     ```rust
     declare_id!("<new-program-id>");
@@ -154,6 +155,7 @@ After the tests complete, the report will be available at `mochawesome-report/mo
     -   `project_id`: A unique ID for the project.
     -   `authority`: The public key with the authority to update the project configuration (e.g., fees).
     -   `token_mint`: The mint address of the token that can be staked in this project.
+    -   `token_program`: The program ID of the token standard used (SPL Token or Token-2022).
     -   `vault`: The address of the token account (PDA) that holds all staked tokens for the project.
     -   `name`: A human-readable name for the project (up to 32 characters).
     -   `fee_wallet`: The public key of the wallet that will receive unstaking fees.
@@ -233,7 +235,7 @@ This section lists the public keys for the program and related accounts deployed
 
 ### `aim_staking_program`
 
-*   **Program ID**: `5BH7DL2muAL9w3LYcZWcB1U8JA1dc7KFaCfTpKJ5RjmD`
+*   **Program ID**: `DdB4xNCwXYoVfanj9Kek3CWJN1jDD9MZXxLeAYnh5u4Y`
 
 ### Key Actors & Wallets
 

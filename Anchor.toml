@@ -2,7 +2,7 @@
 seeds = false
 skip-lint = false
 [programs.devnet]
-aim_staking_program = "2EYmHbfTeFYMc5xNjXp4pd1Y6M2b4fLdrWPucwMHSAJz"
+aim_staking_program = "DdB4xNCwXYoVfanj9Kek3CWJN1jDD9MZXxLeAYnh5u4Y"
 
 [registry]
 url = "https://api.apr.dev"
