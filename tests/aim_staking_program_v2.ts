@@ -52,11 +52,11 @@ describe("aim_staking_program_v2", () => {
       before(async () => {
         // Airdrop to user and fee wallet for account creation fees
         // On devnet/testnet, airdrops can be unreliable. It's better to fund these accounts manually.
-        // await provider.connection.requestAirdrop(user.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
-        // await provider.connection.requestAirdrop(feeWallet.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
+        await provider.connection.requestAirdrop(user.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
+        await provider.connection.requestAirdrop(feeWallet.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
         
         // Give it a moment to process the airdrop
-        // await sleep(500);
+        await sleep(1000);
 
         console.log(`User public key: ${user.publicKey.toBase58()}`);
         console.log(`Fee wallet public key: ${feeWallet.publicKey.toBase58()}`);
