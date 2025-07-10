@@ -1,14 +1,17 @@
+[toolchain]
+
 [features]
-seeds = false
+resolution = true
 skip-lint = false
-[programs.devnet]
-aim_staking_program_v2 = "FG8P631H9q5b53qsVM9aD71GZTWBKvujtqeWUGstpeka"
+
+[programs.localnet]
+aim_staking_program_v2 = "B44fUqmZNMyaUVGqs7pb9ZLPBsjJ3ho6F8cTj1MpjJmJ"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
+cluster = "localnet"
 wallet = "/Users/havencross/.config/solana/id.json"
 
 [scripts]
@@ -16,3 +19,5 @@ test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [test]
 startup_wait = 30000
+shutdown_wait = 2000
+upgradeable = false
