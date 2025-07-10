@@ -261,27 +261,10 @@ This section lists the public keys for the program and related accounts deployed
 
 ### Key Actors & Wallets
 
-*   **Platform & Project Authority**: `EQbG6xoyY1sCEmH3JohA6LzNfew35eCGYj2PUtMwR8xS`
+*   **Platform & Project Authority**: `7aDFhTQwPMwWGckTHL2gebSDSvey8iXodLdR6vEVxgMu`
 *   **User Wallet**: `CDmUCaBAUVa7eERKFJr3PER1aeknpTLdkbmzuFR6MhJm`
 *   **Fee Wallet (Owner)**: `7Gq1ffkZjR7UiChhQRJtRjienP8C3psWjTdAAkVnkiZZ`
-*   **Fee Wallet Token Account**: `6YVhPmwfB66tPDLYF5QyJvXPQLwj98CXArZUJ1HeWbKN`
-
-### Staking Project: "My Test Project"
-
-This project was registered and interacted with during the test run.
-
-*   **Project Name**: `My Test Project`
-*   **Project Config PDA**: `J1trx6Q6bwA5jMGn2BXwGCHpuwKdQ9136KuTuZrCh4uM`
-*   **Staking Token Mint**: `AijSUnF9eyDxC6TbtQyEEispbHKDhhVZ46Xp8dFT9ng7`
-*   **Token Vault PDA**: `8sKjqtNgXmKjBuSR69y8CPFJfyWKwFgbVo59SyTcQR5v`
-*   **Vault Authority PDA**: `8jji6LHzCnx1xkrrwakvmmk9tP7Utp3kpPbeykf3TjMF`
-
-### User Staking Data
-
-*   **User Token Account**: `D5qCDFZX2z69wAiBseRjusxgN7e7cJaYjYQ37z9Bw2ZN`
-*   **Stake Info PDA (1st stake)**: `BUkJqBsTzUY2AULZWq12Qw2B1k7rxNLVWfJmf9JB2iXu`
-*   **Stake Info PDA (2nd stake)**: `J7PJqrQvoaUSUCXqeuVv8TKZ3EWADTWMrdaAngJhE1pX`
 
 ### Platform & System Accounts
 
-*   **Platform Config PDA**: `Gn8xQoQJqZrgyd2fBfKJvByHJnYP2HeoPz5X6d3Jamzt` 
+*   **Platform Config PDA**: `DYESfSzsvqYbe9ViubUoKZfKbE9wKHLydDiZ6qXpifix` 
