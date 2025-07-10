@@ -16,6 +16,7 @@ describe("aim_staking_program_v2", () => {
     Uint8Array.from([104,6,27,155,224,174,1,74,31,122,9,169,139,243,245,178,51,62,178,251,223,165,114,130,221,223,189,211,211,108,114,234,166,181,206,158,177,135,230,10,6,143,200,153,178,235,105,165,170,148,170,169,97,108,202,97,159,84,49,207,127,17,47,150])
   );
   // Using a fixed keypair for the fee wallet for consistent testing.
+  // Public key: 7Gq1ffkZjR7UiChhQRJtRjienP8C3psWjTdAAkVnkiZZ
   // The secret key must be a 64-byte array and cryptographically valid.
   const feeWallet = anchor.web3.Keypair.fromSecretKey(
     Uint8Array.from([29,86,39,101,159,45,98,248,245,180,94,32,142,241,153,168,220,15,226,131,233,50,204,106,183,196,82,12,242,69,158,30,93,52,30,214,192,107,155,91,239,210,114,57,115,167,200,38,98,199,105,170,93,128,61,55,139,161,4,28,165,46,180,108])
