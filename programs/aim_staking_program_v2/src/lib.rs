@@ -28,7 +28,7 @@ pub mod aim_staking_program_v2 {
     /// Returns an error if the platform is already initialized.
     pub fn initialize_platform(ctx: Context<InitializePlatform>) -> Result<()> {
         let platform_config = &mut ctx.accounts.platform_config;
-        platform_config.authority = *ctx.accounts.authority.key;
+        platform_config.authorities = vec![*ctx.accounts.authority.key];
         platform_config.project_count = 0;
         Ok(())
     }
@@ -46,9 +46,15 @@ pub mod aim_staking_program_v2 {
     /// # Errors
     ///
     /// Returns `NameTooLong` if the provided name exceeds 32 characters.
-    pub fn register_project(ctx: Context<RegisterProject>, name: String) -> Result<()> {
+    pub fn register_project(ctx: Context<RegisterProject>, name: String, allowed_durations: Vec<u32>) -> Result<()> {
+        if !ctx.accounts.platform_config.authorities.contains(ctx.accounts.authority.key) {
+            return err!(ErrorCode::NotPlatformAuthority);
+        }
         if name.len() > 32 {
             return err!(ErrorCode::NameTooLong);
+        }
+        if allowed_durations.len() > 10 {
+            return err!(ErrorCode::TooManyDurations);
         }
         let platform_config = &mut ctx.accounts.platform_config;
         let project_config = &mut ctx.accounts.project_config;
@@ -62,8 +68,95 @@ pub mod aim_staking_program_v2 {
         project_config.token_program = ctx.accounts.token_program.key();
         project_config.unstake_fee_bps = 0;
         project_config.emergency_unstake_fee_bps = 0;
+        project_config.allowed_durations = allowed_durations;
         
         platform_config.project_count += 1;
+        Ok(())
+    }
+
+    /// Adds a new authority to the platform.
+    ///
+    /// Can only be called by an existing platform authority.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `new_authority` - The public key of the new authority to add.
+    pub fn add_authority(ctx: Context<AddAuthority>, new_authority: Pubkey) -> Result<()> {
+        if !ctx
+            .accounts
+            .platform_config
+            .authorities
+            .contains(ctx.accounts.authority.key)
+        {
+            return err!(ErrorCode::NotPlatformAuthority);
+        }
+        if ctx
+            .accounts
+            .platform_config
+            .authorities
+            .contains(&new_authority)
+        {
+            return err!(ErrorCode::AuthorityAlreadyExists);
+        }
+        ctx.accounts
+            .platform_config
+            .authorities
+            .push(new_authority);
+        Ok(())
+    }
+
+    /// Removes an authority from the platform.
+    ///
+    /// Can only be called by an existing platform authority.
+    /// The last authority cannot be removed.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `authority_to_remove` - The public key of the authority to remove.
+    pub fn remove_authority(
+        ctx: Context<RemoveAuthority>,
+        authority_to_remove: Pubkey,
+    ) -> Result<()> {
+        if !ctx
+            .accounts
+            .platform_config
+            .authorities
+            .contains(ctx.accounts.authority.key)
+        {
+            return err!(ErrorCode::NotPlatformAuthority);
+        }
+        if ctx.accounts.platform_config.authorities.len() <= 1 {
+            return err!(ErrorCode::CannotRemoveLastAuthority);
+        }
+
+        let authorities = &mut ctx.accounts.platform_config.authorities;
+        if let Some(pos) = authorities
+            .iter()
+            .position(|x| *x == authority_to_remove)
+        {
+            authorities.remove(pos);
+        } else {
+            return err!(ErrorCode::AuthorityNotFound);
+        }
+
+        Ok(())
+    }
+
+    /// Updates the allowed staking durations for a project.
+    ///
+    /// Can only be called by the project's authority.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context for this instruction.
+    /// * `new_durations` - The new vector of allowed durations in days.
+    pub fn update_allowed_durations(ctx: Context<UpdateAllowedDurations>, new_durations: Vec<u32>) -> Result<()> {
+        if new_durations.len() > 10 {
+            return err!(ErrorCode::TooManyDurations);
+        }
+        ctx.accounts.project_config.allowed_durations = new_durations;
         Ok(())
     }
 
@@ -108,7 +201,7 @@ pub mod aim_staking_program_v2 {
     // * Returns `InvalidDuration` if an unsupported duration is provided.
     pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
         // Validate duration
-        if ![1, 7, 14, 30].contains(&duration_days) {
+        if !ctx.accounts.project_config.allowed_durations.contains(&duration_days) {
             return err!(ErrorCode::InvalidDuration);
         }
 
@@ -286,8 +379,8 @@ pub mod aim_staking_program_v2 {
 /// There is only one of these accounts, derived from the seed "platform".
 #[account]
 pub struct PlatformConfig {
-    /// The authority that can register new projects.
-    pub authority: Pubkey,
+    /// The authorities that can register new projects.
+    pub authorities: Vec<Pubkey>,
     /// A counter for the total number of projects, used to derive unique project PDAs.
     pub project_count: u64,
 }
@@ -313,6 +406,8 @@ pub struct ProjectConfig {
     pub unstake_fee_bps: u16,
     /// The fee in basis points for an emergency unstake.
     pub emergency_unstake_fee_bps: u16,
+    /// A list of allowed staking durations in days. Max 10.
+    pub allowed_durations: Vec<u32>,
 }
 
 /// Holds the details of a single user's stake.
@@ -344,7 +439,8 @@ pub struct InitializePlatform<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 32 + 8,
+        // 8 discriminator + 4 vec prefix + 1 * 32 for the first authority + 8 for project_count
+        space = 8 + 4 + 32 + 8,
         seeds = [b"platform"],
         bump
     )]
@@ -358,7 +454,6 @@ pub struct InitializePlatform<'info> {
 pub struct RegisterProject<'info> {
     #[account(
         mut,
-        has_one = authority,
         seeds = [b"platform"],
         bump
     )]
@@ -366,7 +461,8 @@ pub struct RegisterProject<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 8 + 32 + 32 + 32 + (4 + 32) + 32 + 32 + 2 + 2,
+        // Base: 214 + Vec (4 prefix + 10 * 4 items) = 258
+        space = 8 + 8 + 32 + 32 + 32 + (4 + 32) + 32 + 32 + 2 + 2 + (4 + 10 * 4),
         seeds = [b"project", platform_config.project_count.to_le_bytes().as_ref()],
         bump
     )]
@@ -395,6 +491,22 @@ pub struct RegisterProject<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(new_durations: Vec<u32>)]
+pub struct UpdateAllowedDurations<'info> {
+    #[account(
+        mut,
+        has_one = authority,
+        realloc = 8 + 8 + 32 + 32 + 32 + (4 + project_config.name.as_bytes().len()) + 32 + 32 + 2 + 2 + (4 + new_durations.len() * 4),
+        realloc::payer = authority,
+        realloc::zero = false,
+    )]
+    pub project_config: Account<'info, ProjectConfig>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct UpdateProjectConfig<'info> {
     #[account(
         mut,
@@ -403,6 +515,38 @@ pub struct UpdateProjectConfig<'info> {
     pub project_config: Account<'info, ProjectConfig>,
     #[account(mut)]
     pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct AddAuthority<'info> {
+    #[account(
+        mut,
+        seeds = [b"platform"],
+        bump,
+        realloc = platform_config.to_account_info().data_len() + 32,
+        realloc::payer = authority,
+        realloc::zero = false,
+    )]
+    pub platform_config: Account<'info, PlatformConfig>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RemoveAuthority<'info> {
+    #[account(
+        mut,
+        seeds = [b"platform"],
+        bump,
+        realloc = platform_config.to_account_info().data_len() - 32,
+        realloc::payer = authority,
+        realloc::zero = false,
+    )]
+    pub platform_config: Account<'info, PlatformConfig>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -562,12 +706,22 @@ pub struct EmergencyUnstakeEvent {
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Invalid staking duration. Only 1, 7, 14, or 30 days are allowed.")]
+    #[msg("Invalid staking duration. The provided duration is not in the allowed list for this project.")]
     InvalidDuration,
     #[msg("Lockup period has not ended yet.")]
     LockupPeriodNotEnded,
     #[msg("Project name cannot exceed 32 characters.")]
     NameTooLong,
+    #[msg("Too many durations provided. Maximum is 10.")]
+    TooManyDurations,
     #[msg("Invalid fee wallet.")]
     InvalidFeeWallet,
+    #[msg("Signer is not a platform authority.")]
+    NotPlatformAuthority,
+    #[msg("The authority to add already exists.")]
+    AuthorityAlreadyExists,
+    #[msg("Cannot remove the last authority.")]
+    CannotRemoveLastAuthority,
+    #[msg("The authority to remove was not found.")]
+    AuthorityNotFound,
 }

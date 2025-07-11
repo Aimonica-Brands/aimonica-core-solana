@@ -118,8 +118,8 @@ describe("aim_staking_program_v2", () => {
         try {
           const existingPlatformConfig = await program.account.platformConfig.fetch(platformConfigPda);
           console.log("Platform already initialized, skipping initialization");
-          // If platform exists, verify it's owned by the correct authority
-          assert.ok(existingPlatformConfig.authority.equals(authority));
+          // If platform exists, verify the initializer is an authority
+          assert.ok(existingPlatformConfig.authorities.some(auth => auth.equals(authority)));
           return;
         } catch (error) {
           // Platform doesn't exist, proceed with initialization
@@ -139,7 +139,8 @@ describe("aim_staking_program_v2", () => {
         console.log("initializePlatform transaction:", txid_initialize);
 
         const platformConfigAccount = await program.account.platformConfig.fetch(platformConfigPda);
-        assert.ok(platformConfigAccount.authority.equals(authority));
+        assert.equal(platformConfigAccount.authorities.length, 1);
+        assert.ok(platformConfigAccount.authorities[0].equals(authority));
         assert.equal(platformConfigAccount.projectCount.toNumber(), 0);
       });
 
@@ -189,8 +190,9 @@ describe("aim_staking_program_v2", () => {
         console.log("registerProject accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
 
         const projectName = "My Test Project";
+        const allowedDurations = [1, 7, 30]; // e.g., 1 day, 7 days, 30 days
         const txid_register = await program.methods
-          .registerProject(projectName)
+          .registerProject(projectName, allowedDurations)
           .accountsStrict(accounts)
           .rpc();
         console.log("registerProject transaction:", txid_register);
@@ -206,6 +208,234 @@ describe("aim_staking_program_v2", () => {
         assert.ok(projectConfigAccount.tokenProgram.equals(tokenProgram));
         assert.equal(projectConfigAccount.unstakeFeeBps, 0);
         assert.equal(projectConfigAccount.emergencyUnstakeFeeBps, 0);
+        assert.deepEqual(projectConfigAccount.allowedDurations, allowedDurations);
+      });
+
+      it("Updates allowed durations", async () => {
+        const newAllowedDurations = [14, 30, 90];
+        const accounts = {
+          projectConfig: projectConfigPda,
+          authority: authority,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        };
+
+        await program.methods
+          .updateAllowedDurations(newAllowedDurations)
+          .accountsStrict(accounts)
+          .rpc();
+        
+        const projectConfig = await program.account.projectConfig.fetch(projectConfigPda);
+        assert.deepEqual(projectConfig.allowedDurations, newAllowedDurations);
+      });
+
+      it("Fails to stake with a non-allowed duration", async () => {
+        const amountToStake = new anchor.BN(10 * 10 ** 9);
+        const nonAllowedDuration = 5; // This duration is not in [14, 30, 90]
+        const stakeId = new anchor.BN(99); // Use a unique stake ID
+
+        const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("stake"), projectConfigPda.toBuffer(), user.publicKey.toBuffer(), stakeId.toBuffer('le', 8)],
+            program.programId
+        );
+
+        try {
+            await program.methods.stake(amountToStake, nonAllowedDuration, stakeId)
+                .accountsStrict({
+                    projectConfig: projectConfigPda,
+                    stakeInfo: stakeInfoPda,
+                    user: user.publicKey,
+                    userTokenAccount: userTokenAccount,
+                    vault: vaultPda,
+                    systemProgram: anchor.web3.SystemProgram.programId,
+                    tokenProgram: tokenProgram,
+                })
+                .signers([user])
+                .rpc();
+            assert.fail("Staking should have failed with a non-allowed duration.");
+        } catch (error) {
+            assert.include(error.message, "InvalidDuration");
+        }
+      });
+
+      describe("Authority Management", () => {
+        let newAuthority: anchor.web3.Keypair;
+
+        before(async () => {
+            newAuthority = anchor.web3.Keypair.generate();
+            await provider.connection.requestAirdrop(newAuthority.publicKey, anchor.web3.LAMPORTS_PER_SOL);
+            await sleep(1000); // Wait for airdrop
+            console.log(`New authority public key: ${newAuthority.publicKey.toBase58()}`);
+        });
+
+        it("Fails to add an authority using a non-authority account", async () => {
+            try {
+                await program.methods
+                    .addAuthority(authority)
+                    .accountsStrict({
+                        platformConfig: platformConfigPda,
+                        authority: newAuthority.publicKey,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .signers([newAuthority])
+                    .rpc();
+                assert.fail("Should have failed to add authority with a non-authority key.");
+            } catch (error) {
+                // Anchor v0.29.0 wraps the error, so we need to check the inner message
+                assert.include(error.toString(), "NotPlatformAuthority");
+            }
+        });
+
+        it("Adds a new authority", async () => {
+            const platformConfigBefore = await program.account.platformConfig.fetch(platformConfigPda);
+            const authorityCountBefore = platformConfigBefore.authorities.length;
+
+            const accounts = {
+                platformConfig: platformConfigPda,
+                authority: authority,
+                systemProgram: anchor.web3.SystemProgram.programId,
+            };
+
+            await program.methods
+                .addAuthority(newAuthority.publicKey)
+                .accountsStrict(accounts)
+                .rpc();
+
+            const platformConfigAfter = await program.account.platformConfig.fetch(platformConfigPda);
+            assert.equal(platformConfigAfter.authorities.length, authorityCountBefore + 1);
+            assert.ok(platformConfigAfter.authorities.some(auth => auth.equals(newAuthority.publicKey)));
+        });
+
+        it("New authority can register a project", async () => {
+            const platformConfigAccountBefore = await program.account.platformConfig.fetch(platformConfigPda);
+            const projectCount = platformConfigAccountBefore.projectCount;
+
+            const [newProjectConfigPda] = await anchor.web3.PublicKey.findProgramAddress(
+                [Buffer.from("project"), projectCount.toBuffer('le', 8)],
+                program.programId
+            );
+
+            const [newVaultPda] = await anchor.web3.PublicKey.findProgramAddress(
+                [Buffer.from("vault"), projectCount.toBuffer('le', 8)],
+                program.programId
+            );
+
+            const [newVaultAuthorityPda] = await anchor.web3.PublicKey.findProgramAddress(
+                [Buffer.from("vault-authority"), projectCount.toBuffer('le', 8)],
+                program.programId
+            );
+            
+            const accounts = {
+                platformConfig: platformConfigPda,
+                projectConfig: newProjectConfigPda,
+                tokenMint: tokenMint,
+                vault: newVaultPda,
+                vaultAuthority: newVaultAuthorityPda,
+                authority: newAuthority.publicKey,
+                systemProgram: anchor.web3.SystemProgram.programId,
+                tokenProgram: tokenProgram,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            };
+            
+            const projectName = "Project by New Authority";
+            const allowedDurations = [1, 2, 3];
+            await program.methods
+                .registerProject(projectName, allowedDurations)
+                .accountsStrict(accounts)
+                .signers([newAuthority])
+                .rpc();
+
+            const platformConfigAccountAfter = await program.account.platformConfig.fetch(platformConfigPda);
+            assert.equal(platformConfigAccountAfter.projectCount.toNumber(), projectCount.toNumber() + 1);
+            
+            const projectConfigAccount = await program.account.projectConfig.fetch(newProjectConfigPda);
+            assert.equal(projectConfigAccount.name, projectName);
+        });
+
+        it("Removes an authority", async () => {
+            const platformConfigBefore = await program.account.platformConfig.fetch(platformConfigPda);
+            const authorityCountBefore = platformConfigBefore.authorities.length;
+
+            const accounts = {
+                platformConfig: platformConfigPda,
+                authority: authority,
+                systemProgram: anchor.web3.SystemProgram.programId,
+            };
+
+            await program.methods
+                .removeAuthority(newAuthority.publicKey)
+                .accountsStrict(accounts)
+                .rpc();
+
+            const platformConfigAfter = await program.account.platformConfig.fetch(platformConfigPda);
+            assert.equal(platformConfigAfter.authorities.length, authorityCountBefore - 1);
+            assert.isFalse(platformConfigAfter.authorities.some(auth => auth.equals(newAuthority.publicKey)));
+        });
+
+        it("Removed authority cannot register a project", async () => {
+            const platformConfigAccountBefore = await program.account.platformConfig.fetch(platformConfigPda);
+            const projectCount = platformConfigAccountBefore.projectCount;
+
+            const [newProjectConfigPda] = await anchor.web3.PublicKey.findProgramAddress(
+                [Buffer.from("project"), projectCount.toBuffer('le', 8)],
+                program.programId
+            );
+
+            const [newVaultPda] = await anchor.web3.PublicKey.findProgramAddress(
+                [Buffer.from("vault"), projectCount.toBuffer('le', 8)],
+                program.programId
+            );
+
+            const [newVaultAuthorityPda] = await anchor.web3.PublicKey.findProgramAddress(
+                [Buffer.from("vault-authority"), projectCount.toBuffer('le', 8)],
+                program.programId
+            );
+            
+            const accounts = {
+                platformConfig: platformConfigPda,
+                projectConfig: newProjectConfigPda,
+                tokenMint: tokenMint,
+                vault: newVaultPda,
+                vaultAuthority: newVaultAuthorityPda,
+                authority: newAuthority.publicKey,
+                systemProgram: anchor.web3.SystemProgram.programId,
+                tokenProgram: tokenProgram,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            };
+            
+            try {
+                const projectName = "Project by Removed Authority";
+                const allowedDurations = [4, 5, 6];
+                await program.methods
+                    .registerProject(projectName, allowedDurations)
+                    .accountsStrict(accounts)
+                    .signers([newAuthority])
+                    .rpc();
+                assert.fail("Removed authority should not be able to register a project.");
+            } catch (error) {
+                assert.include(error.toString(), "NotPlatformAuthority");
+            }
+        });
+
+        it("Fails to remove the last authority", async () => {
+            const platformConfig = await program.account.platformConfig.fetch(platformConfigPda);
+            // In our test flow, there should only be one authority left.
+            assert.equal(platformConfig.authorities.length, 1);
+            const lastAuthority = platformConfig.authorities[0];
+
+            try {
+                await program.methods
+                    .removeAuthority(lastAuthority)
+                    .accountsStrict({
+                        platformConfig: platformConfigPda,
+                        authority: authority, // The signer must be an authority
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc();
+                assert.fail("Should have failed to remove the last authority.");
+            } catch (error) {
+                assert.include(error.toString(), "CannotRemoveLastAuthority");
+            }
+        });
       });
 
       it("Updates project config for fees", async () => {
@@ -233,7 +463,7 @@ describe("aim_staking_program_v2", () => {
 
       it("Stakes tokens (1st stake)", async () => {
         const amountToStake = new anchor.BN(100 * 10 ** 9);
-        const durationDays = 1;
+        const durationDays = 14; // This is now an allowed duration
         const stakeId = new anchor.BN(1);
 
         const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
@@ -274,7 +504,7 @@ describe("aim_staking_program_v2", () => {
         const vaultAccountBefore = await getAccount(provider.connection, vaultPda, undefined, tokenProgram);
 
         const amountToStake = new anchor.BN(50 * 10 ** 9);
-        const durationDays = 14;
+        const durationDays = 30; // This is now an allowed duration
         const stakeId = new anchor.BN(2);
 
         const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
