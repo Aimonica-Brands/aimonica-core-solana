@@ -21,6 +21,11 @@ describe("aim_staking_program_v2", () => {
   const feeWallet = anchor.web3.Keypair.fromSecretKey(
     Uint8Array.from([29,86,39,101,159,45,98,248,245,180,94,32,142,241,153,168,220,15,226,131,233,50,204,106,183,196,82,12,242,69,158,30,93,52,30,214,192,107,155,91,239,210,114,57,115,167,200,38,98,199,105,170,93,128,61,55,139,161,4,28,165,46,180,108])
   );
+  // Using a fixed keypair for the new authority for consistent testing.
+  // Public key: GDsKa8AWhNnHFaQMqDxngFNvFgPD6uvAJzBaBLhAY3nU
+  const newAuthority = anchor.web3.Keypair.fromSecretKey(
+    Uint8Array.from([193,209,44,152,172,165,106,185,158,23,176,152,117,171,99,230,145,217,168,224,4,23,88,103,126,128,166,230,231,244,56,104,226,43,43,187,62,154,98,132,85,177,127,160,249,115,76,60,202,166,2,23,89,97,170,150,89,107,185,138,162,6,70,189])
+  );
 
   // Helper function to sleep
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -50,17 +55,24 @@ describe("aim_staking_program_v2", () => {
       }[] = [];
 
       before(async () => {
-        // Airdrop to user and fee wallet for account creation fees
         // On devnet/testnet, airdrops can be unreliable. It's better to fund these accounts manually.
-        await provider.connection.requestAirdrop(user.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
-        await provider.connection.requestAirdrop(feeWallet.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
-        
-        // Give it a moment to process the airdrop
-        await sleep(1000);
-
         console.log(`User public key: ${user.publicKey.toBase58()}`);
         console.log(`Fee wallet public key: ${feeWallet.publicKey.toBase58()}`);
-        console.log("Please ensure both accounts are funded with some SOL on devnet/testnet if you see errors.");
+        console.log(`New authority public key: ${newAuthority.publicKey.toBase58()}`);
+
+        // Conditionally airdrop SOL only on localnet
+        if (provider.connection.rpcEndpoint.includes("localhost") || provider.connection.rpcEndpoint.includes("127.0.0.1")) {
+          console.log("Running on localnet, attempting to airdrop SOL...");
+          await provider.connection.requestAirdrop(user.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
+          await provider.connection.requestAirdrop(feeWallet.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
+          await provider.connection.requestAirdrop(newAuthority.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
+          console.log("Airdrop requests sent.");
+        } else {
+          console.log("Running on devnet/testnet. Please ensure all three accounts are funded with some SOL to avoid errors.");
+        }
+        
+        // Give it a moment for transactions to process
+        await sleep(1000);
 
         // Create a new token mint
         tokenMint = await createMint(
@@ -265,15 +277,6 @@ describe("aim_staking_program_v2", () => {
       });
 
       describe("Authority Management", () => {
-        let newAuthority: anchor.web3.Keypair;
-
-        before(async () => {
-            newAuthority = anchor.web3.Keypair.generate();
-            await provider.connection.requestAirdrop(newAuthority.publicKey, anchor.web3.LAMPORTS_PER_SOL);
-            await sleep(1000); // Wait for airdrop
-            console.log(`New authority public key: ${newAuthority.publicKey.toBase58()}`);
-        });
-
         it("Fails to add an authority using a non-authority account", async () => {
             const accounts = {
                 platformConfig: platformConfigPda,
