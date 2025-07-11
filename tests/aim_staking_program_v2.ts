@@ -191,6 +191,7 @@ describe("aim_staking_program_v2", () => {
 
         const projectName = "My Test Project";
         const allowedDurations = [1, 7, 30]; // e.g., 1 day, 7 days, 30 days
+        console.log("registerProject params:", { projectName, allowedDurations });
         const txid_register = await program.methods
           .registerProject(projectName, allowedDurations)
           .accountsStrict(accounts)
@@ -218,6 +219,8 @@ describe("aim_staking_program_v2", () => {
           authority: authority,
           systemProgram: anchor.web3.SystemProgram.programId,
         };
+        console.log("updateAllowedDurations accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+        console.log("updateAllowedDurations params:", { newAllowedDurations });
 
         await program.methods
           .updateAllowedDurations(newAllowedDurations)
@@ -238,17 +241,21 @@ describe("aim_staking_program_v2", () => {
             program.programId
         );
 
+        const accounts = {
+            projectConfig: projectConfigPda,
+            stakeInfo: stakeInfoPda,
+            user: user.publicKey,
+            userTokenAccount: userTokenAccount,
+            vault: vaultPda,
+            systemProgram: anchor.web3.SystemProgram.programId,
+            tokenProgram: tokenProgram,
+        };
+        console.log("stake (fail) accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+        console.log("stake (fail) params:", { amountToStake: amountToStake.toString(), nonAllowedDuration, stakeId: stakeId.toString() });
+
         try {
             await program.methods.stake(amountToStake, nonAllowedDuration, stakeId)
-                .accountsStrict({
-                    projectConfig: projectConfigPda,
-                    stakeInfo: stakeInfoPda,
-                    user: user.publicKey,
-                    userTokenAccount: userTokenAccount,
-                    vault: vaultPda,
-                    systemProgram: anchor.web3.SystemProgram.programId,
-                    tokenProgram: tokenProgram,
-                })
+                .accountsStrict(accounts)
                 .signers([user])
                 .rpc();
             assert.fail("Staking should have failed with a non-allowed duration.");
@@ -268,14 +275,17 @@ describe("aim_staking_program_v2", () => {
         });
 
         it("Fails to add an authority using a non-authority account", async () => {
+            const accounts = {
+                platformConfig: platformConfigPda,
+                authority: newAuthority.publicKey,
+                systemProgram: anchor.web3.SystemProgram.programId,
+            };
+            console.log("addAuthority (fail) accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+            console.log("addAuthority (fail) params:", { newAuthority: authority.toBase58() });
             try {
                 await program.methods
                     .addAuthority(authority)
-                    .accountsStrict({
-                        platformConfig: platformConfigPda,
-                        authority: newAuthority.publicKey,
-                        systemProgram: anchor.web3.SystemProgram.programId,
-                    })
+                    .accountsStrict(accounts)
                     .signers([newAuthority])
                     .rpc();
                 assert.fail("Should have failed to add authority with a non-authority key.");
@@ -294,6 +304,8 @@ describe("aim_staking_program_v2", () => {
                 authority: authority,
                 systemProgram: anchor.web3.SystemProgram.programId,
             };
+            console.log("addAuthority accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+            console.log("addAuthority params:", { newAuthority: newAuthority.publicKey.toBase58() });
 
             await program.methods
                 .addAuthority(newAuthority.publicKey)
@@ -338,6 +350,8 @@ describe("aim_staking_program_v2", () => {
             
             const projectName = "Project by New Authority";
             const allowedDurations = [1, 2, 3];
+            console.log("registerProject (new authority) accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+            console.log("registerProject (new authority) params:", { projectName, allowedDurations });
             await program.methods
                 .registerProject(projectName, allowedDurations)
                 .accountsStrict(accounts)
@@ -360,6 +374,8 @@ describe("aim_staking_program_v2", () => {
                 authority: authority,
                 systemProgram: anchor.web3.SystemProgram.programId,
             };
+            console.log("removeAuthority accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+            console.log("removeAuthority params:", { authorityToRemove: newAuthority.publicKey.toBase58() });
 
             await program.methods
                 .removeAuthority(newAuthority.publicKey)
@@ -405,6 +421,8 @@ describe("aim_staking_program_v2", () => {
             try {
                 const projectName = "Project by Removed Authority";
                 const allowedDurations = [4, 5, 6];
+                console.log("registerProject (removed authority) accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+                console.log("registerProject (removed authority) params:", { projectName, allowedDurations });
                 await program.methods
                     .registerProject(projectName, allowedDurations)
                     .accountsStrict(accounts)
@@ -422,14 +440,17 @@ describe("aim_staking_program_v2", () => {
             assert.equal(platformConfig.authorities.length, 1);
             const lastAuthority = platformConfig.authorities[0];
 
+            const accounts = {
+                platformConfig: platformConfigPda,
+                authority: authority, // The signer must be an authority
+                systemProgram: anchor.web3.SystemProgram.programId,
+            };
+            console.log("removeAuthority (fail) accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+            console.log("removeAuthority (fail) params:", { authorityToRemove: lastAuthority.toBase58() });
             try {
                 await program.methods
                     .removeAuthority(lastAuthority)
-                    .accountsStrict({
-                        platformConfig: platformConfigPda,
-                        authority: authority, // The signer must be an authority
-                        systemProgram: anchor.web3.SystemProgram.programId,
-                    })
+                    .accountsStrict(accounts)
                     .rpc();
                 assert.fail("Should have failed to remove the last authority.");
             } catch (error) {
@@ -447,6 +468,7 @@ describe("aim_staking_program_v2", () => {
             authority: authority,
         };
         console.log("updateProjectConfig accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+        console.log("updateProjectConfig params:", { feeWallet: feeWallet.publicKey.toBase58(), unstakeFeeBps, emergencyUnstakeFeeBps });
 
         const txid = await program.methods
           .updateProjectConfig(feeWallet.publicKey, unstakeFeeBps, emergencyUnstakeFeeBps)
@@ -482,6 +504,7 @@ describe("aim_staking_program_v2", () => {
           tokenProgram: tokenProgram,
         };
         console.log("stake (1st) accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+        console.log("stake (1st) params:", { amountToStake: amountToStake.toString(), durationDays, stakeId: stakeId.toString() });
 
         const txid_stake = await (program.methods.stake as any)(amountToStake, durationDays, stakeId)
           .accountsStrict(stakeAccounts)
@@ -523,6 +546,7 @@ describe("aim_staking_program_v2", () => {
           tokenProgram: tokenProgram,
         };
         console.log("stake (2nd) accounts:", JSON.stringify(stakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+        console.log("stake (2nd) params:", { amountToStake: amountToStake.toString(), durationDays, stakeId: stakeId.toString() });
 
         const txid_stake = await (program.methods.stake as any)(amountToStake, durationDays, stakeId)
           .accountsStrict(stakeAccounts)
@@ -556,6 +580,7 @@ describe("aim_staking_program_v2", () => {
             tokenProgram: tokenProgram,
           };
           console.log("unstake accounts:", JSON.stringify(unstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+          console.log("unstake params:", { stakeId: stakeToTest.id.toString() });
           const txid_unstake = await (program.methods.unstake as any)(stakeToTest.id)
             .accountsStrict(unstakeAccounts)
             .signers([user])
@@ -603,6 +628,7 @@ describe("aim_staking_program_v2", () => {
           tokenProgram: tokenProgram,
         };
         console.log("emergencyUnstake accounts:", JSON.stringify(emergencyUnstakeAccounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+        console.log("emergencyUnstake params:", { stakeId: stakeToUnstake.id.toString() });
 
         const txid_emergencyUnstake = await (program.methods.emergencyUnstake as any)(stakeToUnstake.id)
           .accountsStrict(emergencyUnstakeAccounts)
