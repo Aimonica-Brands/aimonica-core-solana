@@ -2,8 +2,8 @@
     "scripts": {
         "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
         "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-        "test": "ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=/Users/havencross/.config/solana/id.json ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
-        "test:report": "ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=/Users/havencross/.config/solana/id.json ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts --reporter mochawesome"
+        "test": "ANCHOR_PROVIDER_URL=http://localhost:8899 ANCHOR_WALLET=/Users/havencross/.config/solana/id.json ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
+        "test:report": "ANCHOR_PROVIDER_URL=http://localhost:8899 ANCHOR_WALLET=/Users/havencross/.config/solana/id.json ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts --reporter mochawesome"
     },
     "dependencies": {
         "@coral-xyz/anchor": "^0.31.1"

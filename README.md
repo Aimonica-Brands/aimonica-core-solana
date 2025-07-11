@@ -263,7 +263,8 @@ This section lists the public keys for the program and related accounts deployed
 
 *   **Platform & Project Authority**: `7aDFhTQwPMwWGckTHL2gebSDSvey8iXodLdR6vEVxgMu`
 *   **User Wallet**: `CDmUCaBAUVa7eERKFJr3PER1aeknpTLdkbmzuFR6MhJm`
-*   **Fee Wallet (Owner)**: `7Gq1ffkZjR7UiChhQRJtRjienP8C3psWjTdAAkVnkiZZ`
+*   **Fee Wallet**: `7Gq1ffkZjR7UiChhQRJtRjienP8C3psWjTdAAkVnkiZZ`
+*   **New authority Wallet**: `GDsKa8AWhNnHFaQMqDxngFNvFgPD6uvAJzBaBLhAY3nU`
 
 ### Platform & System Accounts
 
