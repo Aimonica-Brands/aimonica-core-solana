@@ -290,3 +290,9 @@ This section lists the public keys for the program and related accounts deployed
 ### Platform & System Accounts
 
 *   **Platform Config PDA**: `DYESfSzsvqYbe9ViubUoKZfKbE9wKHLydDiZ6qXpifix` 
+
+## Deployed Programs and Accounts (Mainnet)
+
+### `aim_staking_program_v2`
+
+*   **Program ID**: `B44fUqmZNMyaUVGqs7pb9ZLPBsjJ3ho6F8cTj1MpjJmJ`
