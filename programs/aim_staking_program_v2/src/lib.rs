@@ -3,6 +3,19 @@ use anchor_spl::token_interface::{self as token_interface, Mint, TokenAccount, T
 
 declare_id!("B44fUqmZNMyaUVGqs7pb9ZLPBsjJ3ho6F8cTj1MpjJmJ");
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Copy)]
+pub enum StakeStatus {
+    Active,
+    Unstaked,
+    EmergencyUnstaked,
+}
+
+impl Default for StakeStatus {
+    fn default() -> Self {
+        StakeStatus::Active
+    }
+}
+
 /// # AIM Staking Program
 ///
 /// A flexible staking program on Solana built with Anchor.
@@ -300,6 +313,16 @@ pub mod aim_staking_program_v2 {
         
         stake_info.is_staked = false;
 
+        let unstake_info = &mut ctx.accounts.unstake_info;
+        unstake_info.user = stake_info.user;
+        unstake_info.project_config = stake_info.project_config;
+        unstake_info.project_id = stake_info.project_id;
+        unstake_info.stake_info = stake_info.key();
+        unstake_info.stake_id = stake_info.stake_id;
+        unstake_info.amount = stake_info.amount;
+        unstake_info.unstake_timestamp = clock.unix_timestamp;
+        unstake_info.status = StakeStatus::Unstaked;
+
         emit!(UnstakeEvent {
             user: stake_info.user,
             project_id: stake_info.project_id,
@@ -361,6 +384,16 @@ pub mod aim_staking_program_v2 {
         token_interface::transfer(cpi_ctx, amount_to_user)?;
 
         stake_info.is_staked = false;
+
+        let unstake_info = &mut ctx.accounts.unstake_info;
+        unstake_info.user = stake_info.user;
+        unstake_info.project_config = stake_info.project_config;
+        unstake_info.project_id = stake_info.project_id;
+        unstake_info.stake_info = stake_info.key();
+        unstake_info.stake_id = stake_info.stake_id;
+        unstake_info.amount = stake_info.amount;
+        unstake_info.unstake_timestamp = Clock::get()?.unix_timestamp;
+        unstake_info.status = StakeStatus::EmergencyUnstaked;
         
         emit!(EmergencyUnstakeEvent {
             user: stake_info.user,
@@ -430,6 +463,27 @@ pub struct UserStakeInfo {
     pub duration_days: u32,
     /// A flag indicating if the tokens are currently staked.
     pub is_staked: bool,
+}
+
+/// Holds the details of a single user's unstake action.
+#[account]
+pub struct UnstakeInfo {
+    /// The user who unstaked.
+    pub user: Pubkey,
+    /// A reference to the `ProjectConfig` this unstake belongs to.
+    pub project_config: Pubkey,
+    /// The ID of the project this unstake belongs to.
+    pub project_id: u64,
+    /// A reference back to the original `UserStakeInfo` account.
+    pub stake_info: Pubkey,
+    /// The unique identifier for the original stake.
+    pub stake_id: u64,
+    /// The amount of tokens unstaked.
+    pub amount: u64,
+    /// The Unix timestamp when the unstake occurred.
+    pub unstake_timestamp: i64,
+    /// The status of the unstake (Unstaked or EmergencyUnstaked).
+    pub status: StakeStatus,
 }
 
 // ============== CONTEXTS ==============
@@ -565,6 +619,14 @@ pub struct Stake<'info> {
         bump
     )]
     pub stake_info: Account<'info, UserStakeInfo>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + 129,
+        seeds = [b"unstake", stake_info.key().as_ref()],
+        bump
+    )]
+    pub unstake_info: Account<'info, UnstakeInfo>,
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(
@@ -589,9 +651,17 @@ pub struct Unstake<'info> {
         has_one = user,
         seeds = [b"stake", project_config.key().to_bytes().as_ref(), user.key().as_ref(), stake_id.to_le_bytes().as_ref()],
         bump,
-        close = user
+        constraint = stake_info.is_staked @ ErrorCode::StakeNotActive
     )]
     pub stake_info: Account<'info, UserStakeInfo>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + 129,
+        seeds = [b"unstake", stake_info.key().as_ref()],
+        bump
+    )]
+    pub unstake_info: Account<'info, UnstakeInfo>,
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(
@@ -617,6 +687,7 @@ pub struct Unstake<'info> {
     )]
     pub fee_wallet: InterfaceAccount<'info, TokenAccount>,
     pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -629,9 +700,17 @@ pub struct EmergencyUnstake<'info> {
         has_one = user,
         seeds = [b"stake", project_config.key().to_bytes().as_ref(), user.key().as_ref(), stake_id.to_le_bytes().as_ref()],
         bump,
-        close = user
+        constraint = stake_info.is_staked @ ErrorCode::StakeNotActive
     )]
     pub stake_info: Account<'info, UserStakeInfo>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + 129,
+        seeds = [b"unstake", stake_info.key().as_ref()],
+        bump
+    )]
+    pub unstake_info: Account<'info, UnstakeInfo>,
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(
@@ -657,6 +736,7 @@ pub struct EmergencyUnstake<'info> {
     )]
     pub fee_wallet: InterfaceAccount<'info, TokenAccount>,
     pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
 }
 
 // ============== EVENTS ==============
@@ -724,4 +804,6 @@ pub enum ErrorCode {
     CannotRemoveLastAuthority,
     #[msg("The authority to remove was not found.")]
     AuthorityNotFound,
+    #[msg("Stake is not active.")]
+    StakeNotActive,
 }

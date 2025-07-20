@@ -154,6 +154,7 @@ After the tests complete, the report will be available at `mochawesome-report/mo
 
 -   `ProjectConfig`: Stores details for each staking project.
     -   `project_id`: A unique ID for the project.
+    -   `authority`: The authority for the project, who can update its configuration.
     -   `token_mint`: The mint address of the token that can be staked in this project.
     -   `token_program`: The program ID of the token standard used (SPL Token or Token-2022).
     -   `vault`: The address of the token account (PDA) that holds all staked tokens for the project.
@@ -171,7 +172,17 @@ After the tests complete, the report will be available at `mochawesome-report/mo
     -   `amount`: The amount of tokens staked.
     -   `stake_timestamp`: The Unix timestamp when the stake was created.
     -   `duration_days`: The duration of the stake in days. Must be one of the values in the project's `allowed_durations`.
-    -   `is_staked`: A boolean flag indicating if the stake is currently active.
+    -   `is_staked`: A boolean flag indicating if the stake is currently active. This is set to `false` after an unstake or emergency unstake.
+
+-   `UnstakeInfo`: Created when a user unstakes. It records the details of the withdrawal event.
+    -   `user`: The public key of the user who unstaked.
+    -   `project_config`: The public key of the `ProjectConfig`.
+    -   `project_id`: The ID of the project.
+    -   `stake_info`: A reference back to the original `UserStakeInfo` account.
+    -   `stake_id`: The unique identifier for the original stake.
+    -   `amount`: The amount of tokens that were originally staked.
+    -   `unstake_timestamp`: The Unix timestamp when the unstake occurred.
+    -   `status`: The type of unstake (`Unstaked` or `EmergencyUnstaked`).
 
 ### Instructions
 
@@ -213,12 +224,12 @@ After the tests complete, the report will be available at `mochawesome-report/mo
         -   `duration_days`: The staking duration. Must be a value present in the project's `allowed_durations` list.
         -   `stake_id`: A client-generated unique ID for the stake.
 
--   `unstake(stake_id: u64)`: Allows a user to withdraw their tokens after the staking lock-up period has ended. The unstake fee will be deducted from the staked amount.
+-   `unstake(stake_id: u64)`: Allows a user to withdraw their tokens after the staking lock-up period has ended. It sets the original stake's `is_staked` flag to `false` and creates a new `UnstakeInfo` account to record the event.
     -   **Signer:** User
     -   **Args:**
         -   `stake_id`: The ID of the stake to withdraw.
 
--   `emergency_unstake(stake_id: u64)`: Allows immediate withdrawal of staked tokens before the lock-up period ends. The emergency unstake fee will be deducted.
+-   `emergency_unstake(stake_id: u64)`: Allows immediate withdrawal of staked tokens. It sets the original stake's `is_staked` flag to `false` and creates a new `UnstakeInfo` account with an `EmergencyUnstaked` status to record the event.
     -   **Signer:** User
     -   **Args:**
         -   `stake_id`: The ID of the stake to withdraw.
@@ -239,6 +250,7 @@ After the tests complete, the report will be available at `mochawesome-report/mo
 -   `LockupPeriodNotEnded`: Thrown if a user tries to unstake before the lock-up period is over.
 -   `NameTooLong`: Thrown if the project name in `register_project` exceeds 32 characters.
 -   `InvalidFeeWallet`: Thrown if the provided fee wallet account is incorrect during an unstake.
+-   `StakeNotActive`: Thrown if an unstake or emergency unstake is attempted on a stake that is no longer active.
 
 ### PDAs (Program Derived Addresses)
 
@@ -248,7 +260,8 @@ The program uses several PDAs to manage accounts. Here is how they are derived:
 -   **Project Config:** `[b"project", project_count.to_le_bytes()]`
 -   **Vault:** `[b"vault", project_count.to_le_bytes()]`
 -   **Vault Authority:** `[b"vault-authority", project_count.to_le_bytes()]`
--   **Stake Info:** `[b"stake", project_config_pubkey.to_bytes(), user_pubkey.to_bytes(), stake_id.to_le_bytes()]`
+-   **User Stake Info:** `[b"stake", project_config_key.to_bytes(), user_key.as_ref(), stake_id.to_le_bytes()]`
+-   **Unstake Info:** `[b"unstake", stake_info_key.as_ref()]`
 
 ## Program Architecture
 
