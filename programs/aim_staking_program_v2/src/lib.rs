@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{self as token_interface, Mint, TokenAccount, TokenInterface, Transfer};
 
-declare_id!("BJYj9i9jpTfYdFsNAGhp42u2KjGvipbSMmRcZ3Wr8UWf");
+declare_id!("BGWDziWKGkAFPjArzYYQfU7dug5VxACKxEMDZFEMPYuN");
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Copy)]
 pub enum StakeStatus {

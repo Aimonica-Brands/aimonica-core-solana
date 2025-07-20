@@ -308,4 +308,4 @@ This section lists the public keys for the program and related accounts deployed
 
 ### `aim_staking_program_v2`
 
-*   **Program ID**: `B44fUqmZNMyaUVGqs7pb9ZLPBsjJ3ho6F8cTj1MpjJmJ`
+*   **Program ID**: `BGWDziWKGkAFPjArzYYQfU7dug5VxACKxEMDZFEMPYuN`
