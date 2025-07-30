@@ -213,6 +213,9 @@ pub mod aim_staking_program_v2 {
     // *
     // * Returns `InvalidDuration` if an unsupported duration is provided.
     pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
+        if amount == 0 {
+            return err!(ErrorCode::InvalidAmount);
+        }
         // Validate duration
         if !ctx.accounts.project_config.allowed_durations.contains(&duration_days) {
             return err!(ErrorCode::InvalidDuration);
@@ -788,6 +791,8 @@ pub struct EmergencyUnstakeEvent {
 pub enum ErrorCode {
     #[msg("Invalid staking duration. The provided duration is not in the allowed list for this project.")]
     InvalidDuration,
+    #[msg("Stake amount must be greater than zero.")]
+    InvalidAmount,
     #[msg("Lockup period has not ended yet.")]
     LockupPeriodNotEnded,
     #[msg("Project name cannot exceed 32 characters.")]
