@@ -190,6 +190,9 @@ pub mod aim_staking_program_v2 {
         unstake_fee_bps: u16,
         emergency_unstake_fee_bps: u16,
     ) -> Result<()> {
+        if unstake_fee_bps > 10000 || emergency_unstake_fee_bps > 10000 {
+            return err!(ErrorCode::InvalidFeeBps);
+        }
         let project_config = &mut ctx.accounts.project_config;
         project_config.fee_wallet = fee_wallet;
         project_config.unstake_fee_bps = unstake_fee_bps;
@@ -806,4 +809,6 @@ pub enum ErrorCode {
     AuthorityNotFound,
     #[msg("Stake is not active.")]
     StakeNotActive,
+    #[msg("Fee cannot exceed 10000 basis points (100%).")]
+    InvalidFeeBps,
 }
