@@ -45,6 +45,7 @@ describe("aim_staking_program_v2", () => {
       let vaultPda: anchor.web3.PublicKey;
       let vaultAuthorityPda: anchor.web3.PublicKey;
       let stakeInfoPda: anchor.web3.PublicKey;
+      let newAuthorityProjectConfigPda: anchor.web3.PublicKey;
 
       // To manage multiple stakes
       const stakes: {
@@ -227,6 +228,7 @@ describe("aim_staking_program_v2", () => {
       it("Updates allowed durations", async () => {
         const newAllowedDurations = [0, 14, 30, 90]; // Added 0 for testing unstake
         const accounts = {
+          platformConfig: platformConfigPda,
           projectConfig: projectConfigPda,
           authority: authority,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -331,7 +333,7 @@ describe("aim_staking_program_v2", () => {
             const platformConfigAccountBefore = await program.account.platformConfig.fetch(platformConfigPda);
             const projectCount = platformConfigAccountBefore.projectCount;
 
-            const [newProjectConfigPda] = await anchor.web3.PublicKey.findProgramAddress(
+            [newAuthorityProjectConfigPda] = await anchor.web3.PublicKey.findProgramAddress(
                 [Buffer.from("project"), projectCount.toBuffer('le', 8)],
                 program.programId
             );
@@ -348,7 +350,7 @@ describe("aim_staking_program_v2", () => {
             
             const accounts = {
                 platformConfig: platformConfigPda,
-                projectConfig: newProjectConfigPda,
+                projectConfig: newAuthorityProjectConfigPda,
                 tokenMint: tokenMint,
                 vault: newVaultPda,
                 vaultAuthority: newVaultAuthorityPda,
@@ -371,7 +373,7 @@ describe("aim_staking_program_v2", () => {
             const platformConfigAccountAfter = await program.account.platformConfig.fetch(platformConfigPda);
             assert.equal(platformConfigAccountAfter.projectCount.toNumber(), projectCount.toNumber() + 1);
             
-            const projectConfigAccount = await program.account.projectConfig.fetch(newProjectConfigPda);
+            const projectConfigAccount = await program.account.projectConfig.fetch(newAuthorityProjectConfigPda);
             assert.equal(projectConfigAccount.name, projectName);
         });
 
@@ -444,6 +446,25 @@ describe("aim_staking_program_v2", () => {
             }
         });
 
+        it("Removed authority cannot update project config", async () => {
+            const accounts = {
+                platformConfig: platformConfigPda,
+                projectConfig: newAuthorityProjectConfigPda,
+                authority: newAuthority.publicKey,
+            };
+            console.log("updateProjectConfig (removed authority) accounts:", JSON.stringify(accounts, (key, value) => (value?.toBase58 ? value.toBase58() : value), 2));
+            try {
+                await program.methods
+                    .updateProjectConfig(feeWallet.publicKey, 500, 500)
+                    .accountsStrict(accounts)
+                    .signers([newAuthority])
+                    .rpc();
+                assert.fail("Removed authority should not be able to update project config.");
+            } catch (error) {
+                assert.include(error.toString(), "NotPlatformAuthority");
+            }
+        });
+
         it("Fails to remove the last authority", async () => {
             const platformConfig = await program.account.platformConfig.fetch(platformConfigPda);
             // In our test flow, there should only be one authority left.
@@ -474,6 +495,7 @@ describe("aim_staking_program_v2", () => {
         const emergencyUnstakeFeeBps = 100; // 1%
 
         const accounts = {
+            platformConfig: platformConfigPda,
             projectConfig: projectConfigPda,
             authority: authority,
         };
