@@ -172,6 +172,9 @@ pub mod aim_staking_program_v2 {
     /// * `ctx` - The context for this instruction.
     /// * `new_durations` - The new vector of allowed durations in days.
     pub fn update_allowed_durations(ctx: Context<UpdateAllowedDurations>, new_durations: Vec<u32>) -> Result<()> {
+        if !ctx.accounts.platform_config.authorities.contains(ctx.accounts.authority.key) {
+            return err!(ErrorCode::NotPlatformAuthority);
+        }
         if new_durations.len() > 10 {
             return err!(ErrorCode::TooManyDurations);
         }
@@ -202,6 +205,9 @@ pub mod aim_staking_program_v2 {
         unstake_fee_bps: u16,
         emergency_unstake_fee_bps: u16,
     ) -> Result<()> {
+        if !ctx.accounts.platform_config.authorities.contains(ctx.accounts.authority.key) {
+            return err!(ErrorCode::NotPlatformAuthority);
+        }
         if unstake_fee_bps > 10000 || emergency_unstake_fee_bps > 10000 {
             return err!(ErrorCode::InvalidFeeBps);
         }
@@ -573,6 +579,11 @@ pub struct RegisterProject<'info> {
 #[instruction(new_durations: Vec<u32>)]
 pub struct UpdateAllowedDurations<'info> {
     #[account(
+        seeds = [b"platform"],
+        bump
+    )]
+    pub platform_config: Account<'info, PlatformConfig>,
+    #[account(
         mut,
         has_one = authority,
         realloc = 8 + 8 + 32 + 32 + 32 + (4 + project_config.name.as_bytes().len()) + 32 + 32 + 2 + 2 + (4 + new_durations.len() * 4),
@@ -587,6 +598,11 @@ pub struct UpdateAllowedDurations<'info> {
 
 #[derive(Accounts)]
 pub struct UpdateProjectConfig<'info> {
+    #[account(
+        seeds = [b"platform"],
+        bump
+    )]
+    pub platform_config: Account<'info, PlatformConfig>,
     #[account(
         mut,
         has_one = authority,
