@@ -770,6 +770,69 @@ describe("aim_staking_program_v2", () => {
         const vaultFinalAmount = await getAccount(provider.connection, vaultPda, undefined, tokenProgram);
         assert.equal(vaultFinalAmount.amount.toString(), remainingStake.amount.toString());
       });
+
+      it("Fails to emergency unstake after lockup period ends", async () => {
+        // This test uses a stake with a 0-day duration, which we have allowed.
+        const amountToStake = new anchor.BN(10 * 10 ** 9);
+        const durationDays = 0;
+        const stakeId = new anchor.BN(4 + suiteIndex * 100); // Unique stakeId for this test
+
+        const [stakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
+          [Buffer.from("stake"), projectConfigPda.toBuffer(), user.publicKey.toBuffer(), stakeId.toBuffer('le', 8)],
+          program.programId
+        );
+
+        // First, we need to stake the tokens.
+        const [unstakeInfoForStakePda] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("unstake"), stakeInfoPda.toBuffer()],
+            program.programId
+        );
+        await (program.methods.stake as any)(amountToStake, durationDays, stakeId)
+            .accounts({
+                projectConfig: projectConfigPda,
+                stakeInfo: stakeInfoPda,
+                unstakeInfo: unstakeInfoForStakePda,
+                user: user.publicKey,
+                userTokenAccount: userTokenAccount,
+                vault: vaultPda,
+                systemProgram: anchor.web3.SystemProgram.programId,
+                tokenProgram: tokenProgram,
+            })
+            .signers([user])
+            .rpc();
+
+        // A small delay to ensure the next block has a later timestamp.
+        await sleep(1000);
+
+        // Now, attempt to call emergencyUnstake, which should fail.
+        const [unstakeInfoPda] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("unstake"), stakeInfoPda.toBuffer()],
+            program.programId
+        );
+
+        const emergencyUnstakeAccounts = {
+          projectConfig: projectConfigPda,
+          stakeInfo: stakeInfoPda,
+          unstakeInfo: unstakeInfoPda,
+          user: user.publicKey,
+          userTokenAccount: userTokenAccount,
+          vault: vaultPda,
+          vaultAuthority: vaultAuthorityPda,
+          feeWallet: feeWalletTokenAccount,
+          tokenProgram: tokenProgram,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        };
+
+        try {
+          await program.methods.emergencyUnstake(stakeId)
+            .accounts(emergencyUnstakeAccounts)
+            .signers([user])
+            .rpc();
+          assert.fail("Emergency unstake should have failed as lockup period is over.");
+        } catch (error) {
+          assert.include(error.toString(), "LockupPeriodEnded");
+        }
+      });
     });
   });
 });
