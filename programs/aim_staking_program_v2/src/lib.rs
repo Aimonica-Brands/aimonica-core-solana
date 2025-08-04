@@ -202,6 +202,9 @@ pub mod aim_staking_program_v2 {
         unstake_fee_bps: u16,
         emergency_unstake_fee_bps: u16,
     ) -> Result<()> {
+        if unstake_fee_bps > 10000 || emergency_unstake_fee_bps > 10000 {
+            return err!(ErrorCode::InvalidFeeBps);
+        }
         let project_config = &mut ctx.accounts.project_config;
         project_config.fee_wallet = fee_wallet;
         project_config.unstake_fee_bps = unstake_fee_bps;
@@ -225,6 +228,9 @@ pub mod aim_staking_program_v2 {
     // *
     // * Returns `InvalidDuration` if an unsupported duration is provided.
     pub fn stake(ctx: Context<Stake>, amount: u64, duration_days: u32, stake_id: u64) -> Result<()> {
+        if amount == 0 {
+            return err!(ErrorCode::InvalidAmount);
+        }
         // Validate duration
         if !ctx.accounts.project_config.allowed_durations.contains(&duration_days) {
             return err!(ErrorCode::InvalidDuration);
@@ -358,6 +364,13 @@ pub mod aim_staking_program_v2 {
     pub fn emergency_unstake(ctx: Context<EmergencyUnstake>, _stake_id: u64) -> Result<()> {
         let stake_info = &mut ctx.accounts.stake_info;
         
+        // Validate lockup period has not ended
+        let clock = Clock::get()?;
+        let lockup_seconds = (stake_info.duration_days as i64) * 24 * 60 * 60;
+        if stake_info.stake_timestamp + lockup_seconds <= clock.unix_timestamp {
+            return err!(ErrorCode::LockupPeriodEnded);
+        }
+
         // Transfer tokens from vault back to user
         let project_id_bytes = ctx.accounts.project_config.project_id.to_le_bytes();
         let authority_seeds = &[
@@ -800,6 +813,8 @@ pub struct EmergencyUnstakeEvent {
 pub enum ErrorCode {
     #[msg("Invalid staking duration. The provided duration is not in the allowed list for this project.")]
     InvalidDuration,
+    #[msg("Stake amount must be greater than zero.")]
+    InvalidAmount,
     #[msg("Lockup period has not ended yet.")]
     LockupPeriodNotEnded,
     #[msg("Project name cannot exceed 32 characters.")]
@@ -820,4 +835,8 @@ pub enum ErrorCode {
     StakeNotActive,
     #[msg("Duplicate durations are not allowed.")]
     DuplicateDurations,
+    #[msg("Fee cannot exceed 10000 basis points (100%).")]
+    InvalidFeeBps,
+    #[msg("Lockup period has already ended. Use the standard unstake function.")]
+    LockupPeriodEnded,
 }
