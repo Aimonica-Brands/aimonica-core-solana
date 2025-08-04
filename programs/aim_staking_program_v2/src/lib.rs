@@ -346,6 +346,13 @@ pub mod aim_staking_program_v2 {
     pub fn emergency_unstake(ctx: Context<EmergencyUnstake>, _stake_id: u64) -> Result<()> {
         let stake_info = &mut ctx.accounts.stake_info;
         
+        // Validate lockup period has not ended
+        let clock = Clock::get()?;
+        let lockup_seconds = (stake_info.duration_days as i64) * 24 * 60 * 60;
+        if stake_info.stake_timestamp + lockup_seconds <= clock.unix_timestamp {
+            return err!(ErrorCode::LockupPeriodEnded);
+        }
+
         // Transfer tokens from vault back to user
         let project_id_bytes = ctx.accounts.project_config.project_id.to_le_bytes();
         let authority_seeds = &[
@@ -806,4 +813,6 @@ pub enum ErrorCode {
     AuthorityNotFound,
     #[msg("Stake is not active.")]
     StakeNotActive,
+    #[msg("Lockup period has already ended. Use the standard unstake function.")]
+    LockupPeriodEnded,
 }
