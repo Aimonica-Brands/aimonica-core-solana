@@ -69,6 +69,12 @@ pub mod aim_staking_program_v2 {
         if allowed_durations.len() > 10 {
             return err!(ErrorCode::TooManyDurations);
         }
+        let mut de_dup_check = allowed_durations.clone();
+        de_dup_check.sort_unstable();
+        de_dup_check.dedup();
+        if de_dup_check.len() != allowed_durations.len() {
+            return err!(ErrorCode::DuplicateDurations);
+        }
         let platform_config = &mut ctx.accounts.platform_config;
         let project_config = &mut ctx.accounts.project_config;
 
@@ -168,6 +174,12 @@ pub mod aim_staking_program_v2 {
     pub fn update_allowed_durations(ctx: Context<UpdateAllowedDurations>, new_durations: Vec<u32>) -> Result<()> {
         if new_durations.len() > 10 {
             return err!(ErrorCode::TooManyDurations);
+        }
+        let mut de_dup_check = new_durations.clone();
+        de_dup_check.sort_unstable();
+        de_dup_check.dedup();
+        if de_dup_check.len() != new_durations.len() {
+            return err!(ErrorCode::DuplicateDurations);
         }
         ctx.accounts.project_config.allowed_durations = new_durations;
         Ok(())
@@ -821,6 +833,8 @@ pub enum ErrorCode {
     AuthorityNotFound,
     #[msg("Stake is not active.")]
     StakeNotActive,
+    #[msg("Duplicate durations are not allowed.")]
+    DuplicateDurations,
     #[msg("Fee cannot exceed 10000 basis points (100%).")]
     InvalidFeeBps,
     #[msg("Lockup period has already ended. Use the standard unstake function.")]
